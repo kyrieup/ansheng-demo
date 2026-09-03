@@ -56,7 +56,15 @@ URL flags `shot`, `river`, `empty`, `drawn` skip loading that save. 重置 clear
 ## Art slots
 
 Logic is not bound to BoxGeometry. Drop files into `public/art/` (served as `/art/`).
-The glTF binaries are **not required on the GitHub remote**. A 404 (or HTML stand-in) keeps greybox; when `public/art/{sparrow,sandpiper,duck,heron,dragonfly,reed,reed-dense,reed-sparse}.glb` land on this branch they start loading at scale 1, Y-up, face +X.
+The glTF / PNG / JSON art files are **not required on the GitHub remote**. A 404 (or HTML stand-in) keeps greybox. When they land on this branch they start loading.
+
+Reserved `public/art/` paths (same 404→greybox rule):
+
+- `/art/{sparrow,sandpiper,duck,heron,dragonfly,reed,reed-dense,reed-sparse}.glb` — scale 1, Y-up, face +X
+- `/art/terrain.png` — multiply with vertex dry/wet soak colors
+- `/art/water.png` — multiply with tide tint (`#6B8F6A` → `#2A6B68`)
+- `/art/dish.glb` — Y-up, lip radius 7.55, scale 1, dish `#5C564C`
+- `/art/sky-fog.json` — dawn/day/dusk/night `{ color, density }`; missing keeps the locked defaults below
 
 Terrain and water are **PNG only** (not glb). Fog/sky are **color values only** (no sky texture). Dish is **glb**.
 
@@ -65,6 +73,7 @@ Terrain and water are **PNG only** (not glb). Fog/sky are **color values only** 
 | `terrain.png` | high-light olive grain (luma ~0.8–1). **Multiply** with island vertex soak colors. Does not replace dry/wet. |
 | `water.png` | soft rings. **Multiply** with `waterMat.color` tide lerp `#6B8F6A` → `#2A6B68`. |
 | `dish.glb` | Y-up, scale 1, lip radius 7.55. Dish `#5C564C`, bottom `#3E2C20`. Missing → procedural dish. |
+| `sky-fog.json` | dawn/day/dusk/night fog `{ color, density }`. Missing → locked defaults. |
 | `reed-dense.glb` | 湿草 / lush / narrow cluster |
 | `reed-sparse.glb` | 浅沼 / river cluster |
 | `reed.glb` | single-plant fallback |
@@ -81,11 +90,15 @@ Island vertex soak lerp (texture multiplies these, never replaces them):
 - grass dry `#7A8B4E` / grass wet `#4E6A38`
 - mud dry `#8A6E4C` / mud wet `#3E2C20`
 
-Sky/fog (`fog.color = scene.background`, no sky texture):
+Sky/fog (`fog.color = scene.background`, no sky texture). Defaults, overridable by `/art/sky-fog.json`:
 
-- dawn `#C5D4C8` density 0.062
-- day `#B4C8BC` 0.03
-- dusk `#C4A080` 0.04
-- night `#1B1A24` 0.03
+```json
+{
+  "dawn":  { "color": "#C5D4C8", "density": 0.062 },
+  "day":   { "color": "#B4C8BC", "density": 0.03 },
+  "dusk":  { "color": "#C4A080", "density": 0.04 },
+  "night": { "color": "#1B1A24", "density": 0.03 }
+}
+```
 
 `#FFB060` is dusk sun only — never on a mesh. Reed-head warm point `#A07848`. Bills `#8A8478`.

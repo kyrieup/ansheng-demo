@@ -12,6 +12,7 @@ import {
   SUN_DUSK,
   SKY_STOPS,
   lerpStops,
+  ART_PATHS,
 } from './config/look.js';
 
 export const WORLD = 16;
@@ -614,8 +615,8 @@ async function tryPng(url) {
 
 export async function loadOptionalArtTextures() {
   return {
-    terrain: await tryPng('/art/terrain.png'),
-    water: await tryPng('/art/water.png'),
+    terrain: await tryPng(ART_PATHS.terrain),
+    water: await tryPng(ART_PATHS.water),
   };
 }
 

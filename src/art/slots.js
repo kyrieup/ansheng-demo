@@ -1,4 +1,5 @@
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { ART_PATHS } from '../config/look.js';
 import * as primitives from './primitives.js';
 
 const FLAP = ['wing_l1', 'wing_l2', 'wing_r1', 'wing_r2'];
@@ -69,7 +70,8 @@ export async function loadSlots(palette) {
   const names = [...ART_SLOT_GLBS, ...OPTIONAL_GLBS];
   await Promise.all(
     names.map(async (key) => {
-      gltf[key] = await tryGltf(`/art/${key}.glb`);
+      const url = key === 'dish' ? ART_PATHS.dish : `/art/${key}.glb`;
+      gltf[key] = await tryGltf(url);
     })
   );
   return gltf;

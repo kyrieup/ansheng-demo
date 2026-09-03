@@ -23,7 +23,7 @@ import { loadSlots, setMats, makeDish } from './art/slots.js';
 import { save as persistSave, load as loadSave, skipLoad } from './save/local.js';
 import { audio } from './audio/hooks.js';
 import { createMirrors, rebuildMirrors, applyTideMirrors, syncMirrors } from './render/mirrors.js';
-import { SKY_STOPS } from './config/look.js';
+import { SKY_STOPS, loadSkyFogJson } from './config/look.js';
 
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({
@@ -491,6 +491,7 @@ async function boot() {
     scene.add(dish);
   }
   applyArtTextures(island, water, await loadOptionalArtTextures());
+  await loadSkyFogJson();
   applyTimeOfDay(tod, ctx);
   rebuildWater(water, grid, tide);
 

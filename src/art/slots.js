@@ -20,6 +20,7 @@ const gltf = {
   'reed-dense': null,
   'reed-sparse': null,
   reed: null,
+  dish: null,
 };
 
 const loader = new GLTFLoader();
@@ -77,6 +78,7 @@ export async function loadSlots(palette) {
     'reed-dense': '/art/reed-dense.glb',
     'reed-sparse': '/art/reed-sparse.glb',
     reed: '/art/reed.glb',
+    dish: '/art/dish.glb',
   };
   await Promise.all(
     Object.entries(files).map(async ([key, url]) => {
@@ -141,6 +143,11 @@ export function makeReedCluster(density = 'lush') {
   const extras = { kind: 'reed', species: 'reed', name_zh: '芦苇', density };
   if (src) return cloneArt(src, extras);
   return primitives.makeReedCluster(mats, density);
+}
+
+export function makeDish() {
+  if (!gltf.dish) return null;
+  return cloneArt(gltf.dish, { kind: 'dish', name_zh: '托盘' });
 }
 
 export function makeBird(species) {

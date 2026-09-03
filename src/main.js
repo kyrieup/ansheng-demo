@@ -19,10 +19,11 @@ import {
   applyArtTextures,
 } from './world.js';
 import { Wetland } from './town.js';
-import { loadSlots, setMats } from './art/slots.js';
+import { loadSlots, setMats, makeDish } from './art/slots.js';
 import { save as persistSave, load as loadSave, skipLoad } from './save/local.js';
 import { audio } from './audio/hooks.js';
 import { createMirrors, rebuildMirrors, applyTideMirrors, syncMirrors } from './render/mirrors.js';
+import { SKY_STOPS } from './config/look.js';
 
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({
@@ -39,8 +40,8 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xc5d2c8);
-scene.fog = new THREE.FogExp2(0xc5d2c8, 0.038);
+scene.background = new THREE.Color(SKY_STOPS[0].color);
+scene.fog = new THREE.FogExp2(SKY_STOPS[0].color, SKY_STOPS[0].density);
 
 const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 80);
 camera.position.set(8.2, 8.4, 8.6);
@@ -76,7 +77,8 @@ let tide = 0.52;
 let tod = 0.2;
 const island = createIsland(grid, mats, tide);
 scene.add(island);
-scene.add(createDish(mats));
+let dish = createDish(mats);
+scene.add(dish);
 const water = createWater(grid);
 rebuildWater(water, grid, tide);
 scene.add(water);
@@ -482,6 +484,12 @@ function frame() {
 async function boot() {
   audio.ambient();
   await loadSlots(mats);
+  const artDish = makeDish();
+  if (artDish) {
+    scene.remove(dish);
+    dish = artDish;
+    scene.add(dish);
+  }
   applyArtTextures(island, water, await loadOptionalArtTextures());
   applyTimeOfDay(tod, ctx);
   rebuildWater(water, grid, tide);

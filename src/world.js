@@ -1,4 +1,18 @@
 import * as THREE from 'three';
+import {
+  GRASS_DRY,
+  GRASS_WET,
+  MUD_DRY,
+  MUD_WET,
+  DISH,
+  DISH_BOTTOM,
+  DISH_LIP,
+  WATER_DRY,
+  WATER_WET,
+  SUN_DUSK,
+  SKY_STOPS,
+  lerpStops,
+} from './config/look.js';
 
 export const WORLD = 16;
 export const N = 128;
@@ -78,10 +92,11 @@ export function makePalette() {
       ...extra,
     });
   return {
-    grass: std(0x6b8a54, { emissive: 0x243818, emissiveIntensity: 0.22 }),
-    dish: std(0x5c564c, { roughness: 0.78 }),
-    mud: std(0x6e5844, { roughness: 1 }),
-    mudWet: std(0x4a3c2e, { roughness: 0.95 }),
+    grass: std(GRASS_DRY, { emissive: 0x243818, emissiveIntensity: 0.22 }),
+    dish: std(DISH, { roughness: 0.78 }),
+    dishBottom: std(DISH_BOTTOM, { roughness: 0.95 }),
+    mud: std(MUD_DRY, { roughness: 1 }),
+    mudWet: std(MUD_WET, { roughness: 0.95 }),
     reedStem: std(0x4d6a38, { roughness: 0.82 }),
     reedHead: std(0xa07848, { roughness: 0.7 }),
     bill: std(0x8a8478, { roughness: 0.85 }),
@@ -274,19 +289,22 @@ export class WaterGrid {
   }
 }
 
-const GRASS_A = new THREE.Color(0x6b8a54);
-const GRASS_B = new THREE.Color(0x7d9a60);
-const STAIN = new THREE.Color(0x3f5234);
-const MUDFLAT = new THREE.Color(0x6e5844);
+const COL_WATER_DRY = new THREE.Color(WATER_DRY);
+const COL_WATER_WET = new THREE.Color(WATER_WET);
+const COL_GRASS_DRY = new THREE.Color(GRASS_DRY);
+const COL_GRASS_WET = new THREE.Color(GRASS_WET);
+const COL_MUD_DRY = new THREE.Color(MUD_DRY);
+const COL_MUD_WET = new THREE.Color(MUD_WET);
+const TMP_G = new THREE.Color();
+const TMP_M = new THREE.Color();
 const TMP_C = new THREE.Color();
 
-function islandVertexColor(x, z, sdf, tide) {
+function islandVertexColor(_x, _z, sdf, tide) {
   const carve = smooth01(0.2, -0.08, sdf);
-  TMP_C.copy(GRASS_A).lerp(GRASS_B, noise2(x * 2.2, z * 2.2));
-  TMP_C.lerp(STAIN, THREE.MathUtils.clamp((0.08 - sdf) * 2.4, 0, 1));
-  const dry = THREE.MathUtils.clamp(1 - tide * 1.15, 0, 1);
-  TMP_C.lerp(MUDFLAT, carve * dry);
-  TMP_C.lerp(STAIN, carve * (1 - dry) * 0.55);
+  const wet = THREE.MathUtils.clamp(tide, 0, 1);
+  TMP_G.copy(COL_GRASS_DRY).lerp(COL_GRASS_WET, wet);
+  TMP_M.copy(COL_MUD_DRY).lerp(COL_MUD_WET, wet);
+  TMP_C.copy(TMP_G).lerp(TMP_M, carve);
   return TMP_C;
 }
 
@@ -336,6 +354,7 @@ export function createIsland(grid, mats, tide = 0.52) {
   geo.computeVertexNormals();
 
   const mat = new THREE.MeshLambertMaterial({
+    color: 0xffffff,
     vertexColors: true,
     side: THREE.DoubleSide,
     toneMapped: false,
@@ -374,7 +393,10 @@ export function updateIsland(mesh, grid, tide = 0.52) {
 
 export function createDish(mats) {
   const g = new THREE.Group();
-  const torus = new THREE.TorusGeometry(7.55, 0.44, 10, 64);
+  g.name = 'dish';
+  g.userData.kind = 'dish';
+  g.userData.procedural = true;
+  const torus = new THREE.TorusGeometry(DISH_LIP, 0.44, 10, 64);
   torus.rotateX(Math.PI / 2);
   const lip = new THREE.Mesh(torus, mats.dish);
   lip.position.y = 0.18;
@@ -384,7 +406,7 @@ export function createDish(mats) {
   const under = new THREE.Mesh(new THREE.CylinderGeometry(7.35, 6.6, 0.7, 48, 1, true), mats.dish);
   under.position.y = -0.22;
   g.add(under);
-  const bottom = new THREE.Mesh(new THREE.CircleGeometry(6.6, 48), mats.mudWet);
+  const bottom = new THREE.Mesh(new THREE.CircleGeometry(6.6, 48), mats.dishBottom || mats.mudWet);
   bottom.rotation.x = -Math.PI / 2;
   bottom.position.y = -0.55;
   g.add(bottom);
@@ -396,7 +418,7 @@ export function buildWetGeometry(grid, level) {
   const uvs = [];
   const push = (p) => {
     positions.push(p.x, 0, p.y);
-    uvs.push(p.x / WORLD + 0.5, p.y / WORLD + 0.5);
+    uvs.push(p.x / (DISH_LIP * 2) + 0.5, p.y / (DISH_LIP * 2) + 0.5);
   };
   for (let j = 0; j < N - 1; j++) {
     for (let i = 0; i < N - 1; i++) {
@@ -430,7 +452,7 @@ export function buildWetGeometry(grid, level) {
 export function createWater(grid) {
   const group = new THREE.Group();
   const waterMat = new THREE.MeshBasicMaterial({
-    color: 0x8fcfc4,
+    color: WATER_WET,
     transparent: true,
     opacity: 0.88,
     depthWrite: true,
@@ -438,7 +460,7 @@ export function createWater(grid) {
     side: THREE.DoubleSide,
   });
   const mudMat = new THREE.MeshLambertMaterial({
-    color: 0x6e5844,
+    color: MUD_DRY,
   });
   const waterMesh = new THREE.Mesh(buildWetGeometry(grid, 0.1), waterMat);
   const mudMesh = new THREE.Mesh(buildWetGeometry(grid, 0.22), mudMat);
@@ -462,10 +484,8 @@ export function rebuildWater(group, grid, tide) {
   group.userData.waterMesh.position.y = tideToWaterY(tide);
   const mat = group.userData.waterMat;
   mat.opacity = THREE.MathUtils.lerp(0.18, 0.9, tide);
-  const dryCol = new THREE.Color(0x8a9a70);
-  const wetCol = new THREE.Color(0x8fcfc4);
-  mat.color.copy(dryCol).lerp(wetCol, tide);
-  group.userData.mudMat.color.set(tide < 0.42 ? 0x7a6248 : 0x534536);
+  mat.color.copy(COL_WATER_DRY).lerp(COL_WATER_WET, tide);
+  group.userData.mudMat.color.copy(COL_MUD_DRY).lerp(COL_MUD_WET, tide);
   group.userData.mudMesh.visible = tide < 0.84;
 }
 
@@ -545,45 +565,47 @@ export function findIntersections(strokes) {
 }
 
 export function applyTimeOfDay(t, ctx) {
-  const dusk = smooth01(0.32, 0.88, t);
-  const mist = 1 - smooth01(0.0, 0.42, t);
-
-  const skyMorn = new THREE.Color(0xc5d2c8);
-  const skyDusk = new THREE.Color(0xc49a72);
-  const sky = skyMorn.clone().lerp(skyDusk, dusk);
+  const { a, b, u } = lerpStops(t, SKY_STOPS);
+  SKY_A.set(a.color);
+  SKY_B.set(b.color);
+  const sky = SKY_A.clone().lerp(SKY_B, u);
   ctx.scene.background = sky;
   ctx.scene.fog.color.copy(sky);
-  ctx.scene.fog.density = 0.02 + mist * 0.032;
+  ctx.scene.fog.density = a.density + (b.density - a.density) * u;
 
-  ctx.hemi.color.set(0xe6efe4).lerp(new THREE.Color(0xf0c8a0), dusk);
+  const lights = lerpStops(t, LIGHT_STOPS);
+  ctx.hemi.color.set(lights.a.hemi).lerp(new THREE.Color(lights.b.hemi), lights.u);
   ctx.hemi.groundColor.set(0x3a4538);
-  ctx.hemi.intensity = 0.92 - dusk * 0.18;
+  ctx.hemi.intensity = lights.a.hemiI + (lights.b.hemiI - lights.a.hemiI) * lights.u;
 
-  ctx.sun.color.set(0xf2f0e0).lerp(new THREE.Color(0xffb060), dusk);
-  ctx.sun.intensity = 0.92 - dusk * 0.22;
-  const ang = THREE.MathUtils.lerp(0.88, 0.2, t);
+  ctx.sun.color.set(lights.a.sun).lerp(new THREE.Color(lights.b.sun), lights.u);
+  ctx.sun.intensity = lights.a.sunI + (lights.b.sunI - lights.a.sunI) * lights.u;
+  const ang = lights.a.ang + (lights.b.ang - lights.a.ang) * lights.u;
   ctx.sun.position.set(Math.cos(ang) * 12, Math.sin(ang) * 10 + 1.5, 6);
-
-  if (ctx.water && ctx.water.userData.waterMat) {
-    const pale = new THREE.Color(0x8fcfc4);
-    const duskWater = new THREE.Color(0x6aa090);
-    ctx.water.userData.waterMat.color.copy(pale).lerp(duskWater, dusk * 0.45);
-  }
 }
 
-async function tryTexture(url) {
+const SKY_A = new THREE.Color();
+const SKY_B = new THREE.Color();
+const LIGHT_STOPS = [
+  { t: 0, sun: 0xf2f0e0, sunI: 0.85, hemi: 0xe6efe4, hemiI: 0.95, ang: 0.88 },
+  { t: 0.5, sun: 0xf8f4e8, sunI: 1, hemi: 0xe8eee8, hemiI: 1, ang: 0.72 },
+  { t: 0.85, sun: SUN_DUSK, sunI: 0.7, hemi: 0xf0c8a0, hemiI: 0.74, ang: 0.28 },
+  { t: 1, sun: 0x6a7390, sunI: 0.06, hemi: 0x3a3c58, hemiI: 0.32, ang: 0.08 },
+];
+
+async function tryPng(url) {
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
     const ct = res.headers.get('content-type') || '';
     if (ct.includes('text/html')) return null;
-    const blob = await res.blob();
-    const obj = URL.createObjectURL(blob);
+    const buf = await res.arrayBuffer();
+    const b = new Uint8Array(buf);
+    if (b.length < 8 || b[0] !== 0x89 || b[1] !== 0x50 || b[2] !== 0x4e || b[3] !== 0x47) return null;
+    const obj = URL.createObjectURL(new Blob([buf], { type: 'image/png' }));
     const tex = await new THREE.TextureLoader().loadAsync(obj);
     URL.revokeObjectURL(obj);
     tex.colorSpace = THREE.SRGBColorSpace;
-    tex.wrapS = THREE.RepeatWrapping;
-    tex.wrapT = THREE.RepeatWrapping;
     return tex;
   } catch (_) {
     return null;
@@ -592,20 +614,28 @@ async function tryTexture(url) {
 
 export async function loadOptionalArtTextures() {
   return {
-    terrain: await tryTexture('/art/terrain.png'),
-    water: await tryTexture('/art/water.png'),
+    terrain: await tryPng('/art/terrain.png'),
+    water: await tryPng('/art/water.png'),
   };
 }
 
+/** PNG maps multiply with existing colors. They must not replace soak / tide lerps. */
 export function applyArtTextures(island, water, tex) {
   if (tex.terrain && island) {
-    tex.terrain.repeat.set(3, 3);
+    tex.terrain.wrapS = THREE.RepeatWrapping;
+    tex.terrain.wrapT = THREE.RepeatWrapping;
+    tex.terrain.repeat.set(4, 4);
+    island.material.color.set(0xffffff);
+    island.material.vertexColors = true;
     island.material.map = tex.terrain;
     island.material.needsUpdate = true;
   }
   if (tex.water && water?.userData.waterMat) {
-    tex.water.repeat.set(4, 4);
+    tex.water.wrapS = THREE.ClampToEdgeWrapping;
+    tex.water.wrapT = THREE.ClampToEdgeWrapping;
+    tex.water.repeat.set(1, 1);
     water.userData.waterMat.map = tex.water;
     water.userData.waterMat.needsUpdate = true;
   }
 }
+

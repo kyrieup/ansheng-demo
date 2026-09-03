@@ -10,14 +10,19 @@ import {
   createDish,
   createWater,
   rebuildWater,
-  tideToWaterY,
   insideIsland,
   simplify,
   polylineLength,
   findIntersections,
   applyTimeOfDay,
+  loadOptionalArtTextures,
+  applyArtTextures,
 } from './world.js';
 import { Wetland } from './town.js';
+import { loadSlots, setMats } from './art/slots.js';
+import { save as persistSave, load as loadSave, skipLoad } from './save/local.js';
+import { audio } from './audio/hooks.js';
+import { createMirrors, rebuildMirrors, applyTideMirrors, syncMirrors } from './render/mirrors.js';
 
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({
@@ -65,6 +70,7 @@ scene.add(sun);
 scene.add(new THREE.AmbientLight(0xe8eee0, 0.5));
 
 const mats = makePalette();
+setMats(mats);
 const grid = new WaterGrid();
 let tide = 0.52;
 let tod = 0.2;
@@ -80,40 +86,7 @@ preview.frustumCulled = false;
 scene.add(preview);
 
 const wetland = new Wetland(scene, mats);
-const mirrors = new THREE.Group();
-mirrors.name = 'mirrors';
-scene.add(mirrors);
-
-function syncMirrors() {
-  while (mirrors.children.length) {
-    const c = mirrors.children[0];
-    mirrors.remove(c);
-  }
-  if (tide < 0.46) {
-    mirrors.visible = false;
-    return;
-  }
-  mirrors.visible = true;
-  const clone = wetland.group.clone(true);
-  clone.traverse((obj) => {
-    if (obj.material) {
-      const matsArr = Array.isArray(obj.material) ? obj.material : [obj.material];
-      const next = matsArr.map((mat) => {
-        const cm = mat.clone();
-        cm.transparent = true;
-        cm.opacity = (cm.opacity ?? 1) * 0.32;
-        cm.depthWrite = false;
-        return cm;
-      });
-      obj.material = Array.isArray(obj.material) ? next : next[0];
-      obj.castShadow = false;
-    }
-  });
-  const wy = tideToWaterY(tide);
-  clone.scale.y = -1;
-  clone.position.y = 2 * wy;
-  mirrors.add(clone);
-}
+const mirrors = createMirrors(scene);
 
 const ctx = { scene, mats, hemi, sun, water };
 
@@ -124,6 +97,8 @@ let strokePts = [];
 let nextId = 1;
 let strokes = [];
 const history = [];
+const bootParams = new URLSearchParams(location.search);
+const skipPersist = skipLoad(location.search);
 
 applyTimeOfDay(tod, ctx);
 
@@ -131,6 +106,11 @@ const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const drawPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.16);
 const hit = new THREE.Vector3();
+
+function persist() {
+  if (skipPersist) return;
+  persistSave({ strokes, nextId, tide, tod });
+}
 
 function hitIsland(ev) {
   const rect = canvas.getBoundingClientRect();
@@ -248,6 +228,7 @@ function commitStroke() {
   }
 
   snapshot();
+  audio.stroke();
 
   if (eraseMode) {
     strokes = strokes
@@ -294,9 +275,11 @@ function finishRebuild(growPath) {
   updateIsland(island, grid, tide);
   rebuildWater(water, grid, tide);
   const lm = landmarksFrom(strokes);
+  wetland.tod = tod;
   wetland.rebuild(grid, strokes, lm, growPath);
   wetland.applyTide(tide);
-  syncMirrors();
+  rebuildMirrors(mirrors, wetland, tide);
+  persist();
 }
 
 function undo() {
@@ -308,9 +291,45 @@ function undo() {
   grid.syncTexture();
   updateIsland(island, grid, tide);
   rebuildWater(water, grid, tide);
+  wetland.tod = tod;
   wetland.rebuild(grid, strokes, landmarksFrom(strokes), null);
   wetland.applyTide(tide);
-  syncMirrors();
+  rebuildMirrors(mirrors, wetland, tide);
+  persist();
+}
+
+function applySaved(data) {
+  strokes = (data.strokes || []).map((s) => ({
+    id: s.id,
+    width: s.width,
+    connected: !!s.connected,
+    points: (s.points || []).map((p) => new THREE.Vector2(p.x, p.y)),
+  }));
+  nextId = Number(data.nextId) || strokes.reduce((m, s) => Math.max(m, s.id), 0) + 1;
+  if (typeof data.tide === 'number') tide = data.tide;
+  if (typeof data.tod === 'number') tod = data.tod;
+  document.getElementById('tide').value = String(Math.round(tide * 100));
+  document.getElementById('tod').value = String(Math.round(tod * 100));
+  rebuildGridFromStrokes();
+  applyTimeOfDay(tod, ctx);
+  finishRebuild(null);
+  wetland.snapGrow();
+  rebuildMirrors(mirrors, wetland, tide);
+}
+
+function resetAll() {
+  strokes = [];
+  nextId = 1;
+  history.length = 0;
+  tide = 0.52;
+  tod = 0.2;
+  document.getElementById('tide').value = '52';
+  document.getElementById('tod').value = '20';
+  rebuildGridFromStrokes();
+  applyTimeOfDay(tod, ctx);
+  finishRebuild(null);
+  wetland.snapGrow();
+  rebuildMirrors(mirrors, wetland, tide);
 }
 
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -368,17 +387,29 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+document.getElementById('reset').addEventListener('click', resetAll);
+
 document.getElementById('tide').addEventListener('input', (e) => {
   tide = Number(e.target.value) / 100;
   rebuildWater(water, grid, tide);
   updateIsland(island, grid, tide);
   wetland.applyTide(tide);
-  syncMirrors();
+  applyTideMirrors(mirrors, tide);
+  audio.tideChange();
+  persist();
 });
 
 document.getElementById('tod').addEventListener('input', (e) => {
   tod = Number(e.target.value) / 100;
   applyTimeOfDay(tod, ctx);
+  persist();
+});
+
+document.getElementById('tod').addEventListener('change', () => {
+  wetland.tod = tod;
+  wetland.rebuildFauna();
+  rebuildMirrors(mirrors, wetland, tide);
+  persist();
 });
 
 document.getElementById('shot').addEventListener('click', () => {
@@ -399,45 +430,43 @@ window.addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
 });
 
-applyTimeOfDay(tod, ctx);
-rebuildWater(water, grid, tide);
-
-const bootParams = new URLSearchParams(location.search);
-if (bootParams.has('shot') || bootParams.has('river') || bootParams.has('empty')) {
-  document.body.classList.add('shot');
-}
-if (bootParams.has('shot') || bootParams.has('river')) {
-  width = 'river';
-  strokePts = [];
-  if (bootParams.has('river') && !bootParams.has('shot')) {
-    for (let i = 0; i <= 24; i++) {
-      const u = i / 24;
-      strokePts.push(new THREE.Vector2(2.55 + Math.sin(u * 1.55) * 0.7, -3.55 + u * 7.4));
-    }
-    commitStroke();
-  } else {
-    for (let i = 0; i <= 20; i++) {
-      const u = i / 20;
-      strokePts.push(new THREE.Vector2(Math.sin(u * 2.4) * 1.35, -0.15 + u * 4.8));
-    }
-    commitStroke();
-    width = 'narrow';
-    strokePts = [];
-    for (let i = 0; i <= 14; i++) {
-      const u = i / 14;
-      strokePts.push(new THREE.Vector2(-2.4 + u * 4.8, 2.15 + Math.sin(u * 3.1) * 0.25));
-    }
-    commitStroke();
-    width = 'harbor';
-    strokePts = [];
-    for (let i = 0; i <= 10; i++) {
-      const u = i / 10;
-      strokePts.push(new THREE.Vector2(2.2 + Math.sin(u * 1.2) * 0.4, -0.6 + u * 2.4));
-    }
-    commitStroke();
+function playDemoStrokes() {
+  if (bootParams.has('shot') || bootParams.has('river') || bootParams.has('empty')) {
+    document.body.classList.add('shot');
   }
-  wetland.snapGrow();
-  syncMirrors();
+  if (bootParams.has('shot') || bootParams.has('river')) {
+    width = 'river';
+    strokePts = [];
+    if (bootParams.has('river') && !bootParams.has('shot')) {
+      for (let i = 0; i <= 24; i++) {
+        const u = i / 24;
+        strokePts.push(new THREE.Vector2(2.55 + Math.sin(u * 1.55) * 0.7, -3.55 + u * 7.4));
+      }
+      commitStroke();
+    } else {
+      for (let i = 0; i <= 20; i++) {
+        const u = i / 20;
+        strokePts.push(new THREE.Vector2(Math.sin(u * 2.4) * 1.35, -0.15 + u * 4.8));
+      }
+      commitStroke();
+      width = 'narrow';
+      strokePts = [];
+      for (let i = 0; i <= 14; i++) {
+        const u = i / 14;
+        strokePts.push(new THREE.Vector2(-2.4 + u * 4.8, 2.15 + Math.sin(u * 3.1) * 0.25));
+      }
+      commitStroke();
+      width = 'harbor';
+      strokePts = [];
+      for (let i = 0; i <= 10; i++) {
+        const u = i / 10;
+        strokePts.push(new THREE.Vector2(2.2 + Math.sin(u * 1.2) * 0.4, -0.6 + u * 2.4));
+      }
+      commitStroke();
+    }
+    wetland.snapGrow();
+    rebuildMirrors(mirrors, wetland, tide);
+  }
 }
 
 const clock = new THREE.Clock();
@@ -445,7 +474,26 @@ function frame() {
   const dt = Math.min(0.05, clock.getDelta());
   controls.update();
   wetland.tick(dt);
+  syncMirrors(mirrors, wetland);
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
-frame();
+
+async function boot() {
+  audio.ambient();
+  await loadSlots(mats);
+  applyArtTextures(island, water, await loadOptionalArtTextures());
+  applyTimeOfDay(tod, ctx);
+  rebuildWater(water, grid, tide);
+
+  if (!skipPersist) {
+    const data = loadSave();
+    if (data) applySaved(data);
+  } else {
+    playDemoStrokes();
+  }
+
+  frame();
+}
+
+boot();

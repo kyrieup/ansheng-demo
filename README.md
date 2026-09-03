@@ -49,3 +49,25 @@ No counts, no dex, no labels.
 Player only draws / edits / erases wetness, and sets kind, dry↔wet, and time of day.
 No placing objects, no quests, no scores, no tutorial copy.
 World start: one bonsai grass island, a small shallow dip, no city, no birds.
+
+Local save (`ansheng-v1`) keeps strokes, nextId, tide, and tod across refresh.
+URL flags `shot`, `river`, `empty`, `drawn` skip loading that save. 重置 clears it.
+
+## Art slots
+
+Logic is not bound to BoxGeometry. Drop glTF into `public/art/` (served as `/art/`):
+
+| file | use |
+| --- | --- |
+| `reed-dense.glb` | 湿草 / lush / narrow cluster |
+| `reed-sparse.glb` | 浅沼 / river cluster |
+| `reed.glb` | single-plant fallback |
+| `sparrow.glb` | sparrow |
+| `sandpiper.glb` | 鹬 |
+| `duck.glb` | duck (origin at waterline) |
+| `heron.glb` | heron |
+| `dragonfly.glb` | dragonfly (origin at thorax; flap `wing_l1` `wing_l2` `wing_r1` `wing_r2` if present) |
+| `terrain.png` | optional island map |
+| `water.png` | optional water map |
+
+Load at scale 1, Y-up, face +X, origin at feet. Missing files fall back to greybox primitives. `#FFB060` is dusk sun only — never on a mesh. Dish `#5C564C`. Reed-head warm point `#A07848`. Bills `#8A8478`.

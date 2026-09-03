@@ -79,11 +79,12 @@ export function makePalette() {
     });
   return {
     grass: std(0x6b8a54, { emissive: 0x243818, emissiveIntensity: 0.22 }),
-    dish: std(0x2a3028, { roughness: 0.78 }),
+    dish: std(0x5c564c, { roughness: 0.78 }),
     mud: std(0x6e5844, { roughness: 1 }),
     mudWet: std(0x4a3c2e, { roughness: 0.95 }),
     reedStem: std(0x4d6a38, { roughness: 0.82 }),
-    reedHead: std(0xc4a24a, { roughness: 0.7 }),
+    reedHead: std(0xa07848, { roughness: 0.7 }),
+    bill: std(0x8a8478, { roughness: 0.85 }),
     sparrow: std(0x5a4638),
     duck: std(0x3e4a36),
     sandpiper: std(0x8a7060),
@@ -294,6 +295,7 @@ export function createIsland(grid, mats, tide = 0.52) {
   const segs = 96;
   const positions = [];
   const colors = [];
+  const uvs = [];
   const indices = [];
 
   for (let r = 0; r <= rings; r++) {
@@ -309,6 +311,7 @@ export function createIsland(grid, mats, tide = 0.52) {
       const carve = smooth01(0.2, -0.08, sdf);
       const y = THREE.MathUtils.lerp(base, 0.015, carve);
       positions.push(x, y, z);
+      uvs.push(x / WORLD + 0.5, z / WORLD + 0.5);
       islandVertexColor(x, z, sdf, tide);
       colors.push(TMP_C.r, TMP_C.g, TMP_C.b);
     }
@@ -328,6 +331,7 @@ export function createIsland(grid, mats, tide = 0.52) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geo.setIndex(indices);
   geo.computeVertexNormals();
 
@@ -389,6 +393,11 @@ export function createDish(mats) {
 
 export function buildWetGeometry(grid, level) {
   const positions = [];
+  const uvs = [];
+  const push = (p) => {
+    positions.push(p.x, 0, p.y);
+    uvs.push(p.x / WORLD + 0.5, p.y / WORLD + 0.5);
+  };
   for (let j = 0; j < N - 1; j++) {
     for (let i = 0; i < N - 1; i++) {
       const s00 = grid.sdf[j * N + i];
@@ -400,19 +409,18 @@ export function buildWetGeometry(grid, level) {
       const p10 = gridToWorld(i + 1, j);
       const p01 = gridToWorld(i, j + 1);
       const p11 = gridToWorld(i + 1, j + 1);
-      positions.push(
-        p00.x, 0, p00.y,
-        p01.x, 0, p01.y,
-        p10.x, 0, p10.y,
-        p10.x, 0, p10.y,
-        p01.x, 0, p01.y,
-        p11.x, 0, p11.y
-      );
+      push(p00);
+      push(p01);
+      push(p10);
+      push(p10);
+      push(p01);
+      push(p11);
     }
   }
   const geo = new THREE.BufferGeometry();
   if (positions.length) {
     geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
     geo.computeVertexNormals();
     geo.computeBoundingSphere();
   }
@@ -551,7 +559,7 @@ export function applyTimeOfDay(t, ctx) {
   ctx.hemi.groundColor.set(0x3a4538);
   ctx.hemi.intensity = 0.92 - dusk * 0.18;
 
-  ctx.sun.color.set(0xf2f0e0).lerp(new THREE.Color(0xffb070), dusk);
+  ctx.sun.color.set(0xf2f0e0).lerp(new THREE.Color(0xffb060), dusk);
   ctx.sun.intensity = 0.92 - dusk * 0.22;
   const ang = THREE.MathUtils.lerp(0.88, 0.2, t);
   ctx.sun.position.set(Math.cos(ang) * 12, Math.sin(ang) * 10 + 1.5, 6);
@@ -560,5 +568,42 @@ export function applyTimeOfDay(t, ctx) {
     const pale = new THREE.Color(0x8fcfc4);
     const duskWater = new THREE.Color(0x6aa090);
     ctx.water.userData.waterMat.color.copy(pale).lerp(duskWater, dusk * 0.45);
+  }
+}
+
+async function tryTexture(url) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const obj = URL.createObjectURL(blob);
+    const tex = await new THREE.TextureLoader().loadAsync(obj);
+    URL.revokeObjectURL(obj);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return tex;
+  } catch (_) {
+    return null;
+  }
+}
+
+export async function loadOptionalArtTextures() {
+  return {
+    terrain: await tryTexture('/art/terrain.png'),
+    water: await tryTexture('/art/water.png'),
+  };
+}
+
+export function applyArtTextures(island, water, tex) {
+  if (tex.terrain && island) {
+    tex.terrain.repeat.set(3, 3);
+    island.material.map = tex.terrain;
+    island.material.needsUpdate = true;
+  }
+  if (tex.water && water?.userData.waterMat) {
+    tex.water.repeat.set(4, 4);
+    water.userData.waterMat.map = tex.water;
+    water.userData.waterMat.needsUpdate = true;
   }
 }

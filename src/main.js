@@ -473,23 +473,28 @@ function playDemoStrokes() {
       }
       commitStroke();
     } else {
-      for (let i = 0; i <= 20; i++) {
-        const u = i / 20;
-        strokePts.push(new THREE.Vector2(Math.sin(u * 2.4) * 1.35, -0.15 + u * 4.8));
-      }
-      commitStroke();
+      // Shore / mudflat / pool — reeds as a bank, center stays mud or water.
       width = 'narrow';
       strokePts = [];
-      for (let i = 0; i <= 14; i++) {
-        const u = i / 14;
-        strokePts.push(new THREE.Vector2(-2.4 + u * 4.8, 2.15 + Math.sin(u * 3.1) * 0.25));
+      for (let i = 0; i <= 18; i++) {
+        const u = i / 18;
+        const theta = 2.55 + u * 1.65;
+        const R = 5.55 + Math.sin(u * 2.2) * 0.18;
+        strokePts.push(new THREE.Vector2(Math.cos(theta) * R, Math.sin(theta) * R));
+      }
+      commitStroke();
+      width = 'river';
+      strokePts = [];
+      for (let i = 0; i <= 16; i++) {
+        const u = i / 16;
+        strokePts.push(new THREE.Vector2(1.85 + Math.sin(u * 2.1) * 0.55, -2.05 + u * 3.9));
       }
       commitStroke();
       width = 'harbor';
       strokePts = [];
-      for (let i = 0; i <= 10; i++) {
-        const u = i / 10;
-        strokePts.push(new THREE.Vector2(2.2 + Math.sin(u * 1.2) * 0.4, -0.6 + u * 2.4));
+      for (let i = 0; i <= 12; i++) {
+        const a = (i / 12) * Math.PI * 2;
+        strokePts.push(new THREE.Vector2(0.35 + Math.cos(a) * 0.82, 0.15 + Math.sin(a) * 0.62));
       }
       commitStroke();
     }

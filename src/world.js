@@ -362,11 +362,9 @@ export function createIsland(grid, mats, tide = 0.52) {
   geo.setIndex(indices);
   geo.computeVertexNormals();
 
-  const mat = new THREE.MeshStandardMaterial({
+  const mat = new THREE.MeshLambertMaterial({
     color: 0xffffff,
     vertexColors: true,
-    roughness: 0.95,
-    metalness: 0,
     side: THREE.DoubleSide,
     toneMapped: true,
   });
@@ -477,12 +475,11 @@ export function createWater(grid) {
     specular: 0x6a8884,
     depthWrite: true,
     toneMapped: true,
+    fog: true,
     side: THREE.DoubleSide,
   });
-  const mudMat = new THREE.MeshStandardMaterial({
+  const mudMat = new THREE.MeshLambertMaterial({
     color: MUD_DRY,
-    roughness: 0.98,
-    metalness: 0,
     toneMapped: true,
   });
   const waterMesh = new THREE.Mesh(buildWetGeometry(grid, 0.1), waterMat);
@@ -636,11 +633,11 @@ const SKY_A = new THREE.Color();
 const SKY_B = new THREE.Color();
 const LIGHT_STOPS = [
   // Dawn: crushed vs noon, still bright enough that #2A6B68 water and the lip read.
-  { t: 0, sun: 0xc5d0c8, sunI: 0.42, hemi: 0xa8b8ac, hemiI: 0.48, ground: 0x2a382c, ang: 0.55 },
+  { t: 0, sun: 0xc5d0c8, sunI: 0.58, hemi: 0xa8b8ac, hemiI: 0.58, ground: 0x2a382c, ang: 0.62 },
   // Noon may be bright; it is not the default screenshot light.
   { t: 0.5, sun: 0xf8f4e8, sunI: 1.18, hemi: 0xd2ddd4, hemiI: 0.48, ground: 0x3a4538, ang: 1.18 },
   // Dusk: #FFB060 is sun/highlight only — never copied onto a mesh.
-  { t: 0.85, sun: SUN_DUSK, sunI: 0.78, hemi: 0xc4a080, hemiI: 0.52, ground: 0x3a2c22, ang: 0.32 },
+  { t: 0.85, sun: SUN_DUSK, sunI: 0.7, hemi: 0xd2c4b0, hemiI: 0.62, ground: 0x3a2c22, ang: 0.32 },
   { t: 1, sun: 0x6a7390, sunI: 0.05, hemi: 0x3a3c58, hemiI: 0.22, ground: 0x1a1820, ang: 0.08 },
 ];
 

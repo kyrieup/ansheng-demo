@@ -81,14 +81,9 @@ function prepareArtRoot(root, role) {
       obj.receiveShadow = true;
       const n = (obj.name || '').toLowerCase();
       if (n.includes('head')) {
-        eachMaterial(obj, (mat) => {
-          // Heads stay #A07848. Dusk sun #FFB060 must not become a mesh color.
-          mat.color.setHex(0xa07848);
-          if (mat.emissive) mat.emissive.setHex(0x000000);
-          if ('emissiveIntensity' in mat) mat.emissiveIntensity = 0;
-          if ('roughness' in mat) mat.roughness = 1;
-          if ('metalness' in mat) mat.metalness = 0;
-          if (mat.specular) mat.specular.setHex(0x1a1814);
+        obj.material = new THREE.MeshLambertMaterial({
+          color: 0xa07848,
+          toneMapped: true,
         });
       }
       return;

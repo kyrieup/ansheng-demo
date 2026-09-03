@@ -1,0 +1,126 @@
+:root {
+  --ink: #2c261f;
+  --paper: rgba(246, 236, 220, 0.88);
+  --line: rgba(70, 54, 40, 0.22);
+  --on: #6b3a2a;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #1a1718;
+  font-family: "PingFang SC", "Noto Sans SC", "Hiragino Sans GB", sans-serif;
+  user-select: none;
+}
+
+#c {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+}
+
+#hud {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.brand {
+  font-family: "Songti SC", "Noto Serif SC", "STSong", serif;
+  letter-spacing: 0.55em;
+  font-size: 13px;
+  color: rgba(255, 236, 214, 0.55);
+  text-indent: 0.55em;
+  pointer-events: none;
+  margin-bottom: 2px;
+}
+
+.row, .sliders, .seg, label { pointer-events: auto; }
+
+.row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.seg {
+  display: flex;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: 0 8px 28px rgba(20, 12, 8, 0.22);
+}
+
+.seg button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 16px;
+  cursor: pointer;
+  letter-spacing: 0.08em;
+}
+
+.seg button + button { border-left: 1px solid var(--line); }
+
+.seg button.on {
+  background: var(--on);
+  color: #f6ead4;
+}
+
+.seg button:hover:not(.on) { background: rgba(107, 58, 42, 0.08); }
+
+.sliders {
+  display: flex;
+  gap: 16px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 16px;
+  box-shadow: 0 8px 28px rgba(20, 12, 8, 0.18);
+}
+
+label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ink);
+  letter-spacing: 0.12em;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 110px;
+  height: 3px;
+  background: rgba(70, 54, 40, 0.25);
+  border-radius: 2px;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--on);
+  cursor: pointer;
+  border: 2px solid #f6ead4;
+}
+
+body.shot #hud { display: none; }

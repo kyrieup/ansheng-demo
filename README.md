@@ -51,7 +51,22 @@ No placing objects, no quests, no scores, no tutorial copy.
 World start: one bonsai grass island, a small shallow dip, no city, no birds.
 
 Local save (`ansheng-v1`) keeps strokes, nextId, tide, and tod across refresh.
-URL flags `shot`, `river`, `empty`, `drawn` skip loading that save. 重置 clears it.
+URL flags `shot`, `river`, `empty`, `drawn`, `mood` skip loading that save. 重置 clears it.
+
+New game and **重置** default to dusk (`tod = 0.85`). A saved `tod` is restored as-is and is not overwritten on load.
+
+Lights are hemisphere + directional sun only (no AmbientLight). PCF soft shadows: island and dish receive; reeds, birds, and the dish lip cast. `#FFB060` is dusk sun/highlight only — never a mesh.
+
+## Screenshot looks
+
+| look | URL | sliders |
+| --- | --- | --- |
+| dusk + dry mud | `/?shot&mood=dry-dusk` | 干 ≈ 12, 黄昏 85 |
+| dawn + full tide | `/?shot&mood=dawn-full` | 满 100, 晨 0 |
+
+`shot` hides the HUD. `mood` skips `localStorage` so a previous save cannot replace the look. Aliases: `dusk-dry`, `full-dawn`.
+
+Without flags, a fresh session is dusk 0.85 and tide 0.52 (or whatever the save last wrote). Noon is available on the 晨↔黄昏 slider (~50) and can be bright; it is not the default.
 
 ## Art slots
 

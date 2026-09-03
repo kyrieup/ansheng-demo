@@ -14,6 +14,18 @@ export const WATER_WET = 0x2a6b68;
 
 export const SUN_DUSK = 0xffb060;
 
+/** New game / 重置. Existing localStorage `tod` is not overwritten on load. */
+export const DEFAULT_TOD = 0.85;
+export const DEFAULT_TIDE = 0.52;
+
+/** Screenshot looks. `?shot&mood=` skips save and hides HUD. */
+export const MOOD_LOOKS = {
+  'dry-dusk': { tide: 0.12, tod: 0.85 },
+  'dusk-dry': { tide: 0.12, tod: 0.85 },
+  'dawn-full': { tide: 1, tod: 0 },
+  'full-dawn': { tide: 1, tod: 0 },
+};
+
 /** Reserved public/art paths. Loaded as required assets. */
 export const ART_PATHS = {
   terrain: '/art/terrain.png',

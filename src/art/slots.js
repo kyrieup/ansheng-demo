@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { ART_PATHS } from '../config/look.js';
 
@@ -32,12 +33,65 @@ async function loadGltf(url) {
   }
 }
 
-function cloneArt(src, extras) {
+function isWingNode(obj) {
+  const n = (obj.name || '').toLowerCase();
+  return n.startsWith('wing_') || n.includes('wing');
+}
+
+function eachMaterial(obj, fn) {
+  if (!obj.material) return;
+  const list = Array.isArray(obj.material) ? obj.material : [obj.material];
+  for (const mat of list) {
+    if (mat) fn(mat);
+  }
+}
+
+/** Keep glTF Standard (metal 0 / rough 0.88). Never convert to Basic. Never extra-scale. */
+function prepareArtRoot(root, role) {
+  root.traverse((obj) => {
+    if (!obj.isMesh) return;
+    eachMaterial(obj, (mat) => {
+      mat.toneMapped = true;
+      if ('metalness' in mat && (mat.metalness == null || mat.metalness > 0.2)) mat.metalness = 0;
+    });
+    if (role === 'dish') {
+      const n = (obj.name || '').toLowerCase();
+      obj.receiveShadow = true;
+      obj.castShadow = n === 'lip' || n.includes('lip');
+      return;
+    }
+    if (role === 'dragonfly') {
+      // Translucent wings must receive light, stay small, and must not shadow as a black cross.
+      obj.castShadow = false;
+      obj.receiveShadow = !isWingNode(obj);
+      if (isWingNode(obj)) {
+        eachMaterial(obj, (mat) => {
+          mat.transparent = true;
+          mat.depthWrite = false;
+          mat.side = THREE.DoubleSide;
+          if (mat.opacity >= 0.95) mat.opacity = 0.55;
+          if ('roughness' in mat) mat.roughness = Math.min(mat.roughness ?? 0.88, 0.72);
+        });
+      }
+      return;
+    }
+    if (role === 'reed') {
+      obj.castShadow = true;
+      obj.receiveShadow = true;
+      return;
+    }
+    obj.castShadow = true;
+    obj.receiveShadow = true;
+  });
+}
+
+function cloneArt(src, extras, role) {
   const g = src.clone(true);
   g.scale.set(1, 1, 1);
   g.position.set(0, 0, 0);
   g.rotation.set(0, 0, 0);
   Object.assign(g.userData, extras);
+  if (role) prepareArtRoot(g, role);
   return g;
 }
 
@@ -66,6 +120,8 @@ export async function loadSlots() {
     ART_SLOT_GLBS.map(async (key) => {
       const url = key === 'dish' ? ART_PATHS.dish : `/art/${key}.glb`;
       gltf[key] = await loadGltf(url);
+      const role = key === 'dish' ? 'dish' : key === 'dragonfly' ? 'dragonfly' : key.startsWith('reed') ? 'reed' : 'bird';
+      prepareArtRoot(gltf[key], role);
     })
   );
   return gltf;
@@ -84,7 +140,8 @@ export function reedTemplate(density) {
 }
 
 function fauna(species, kind, name_zh) {
-  const g = cloneArt(requireArt(species), { kind, species, name_zh });
+  const role = species === 'dragonfly' ? 'dragonfly' : 'bird';
+  const g = cloneArt(requireArt(species), { kind, species, name_zh }, role);
   if (species === 'dragonfly') tagDragonfly(g);
   return g;
 }
@@ -111,11 +168,11 @@ export function makeDragonfly() {
 
 export function makeReedCluster(density = 'lush') {
   const src = reedTemplate(density);
-  return cloneArt(src, { kind: 'reed', species: 'reed', name_zh: '芦苇', density });
+  return cloneArt(src, { kind: 'reed', species: 'reed', name_zh: '芦苇', density }, 'reed');
 }
 
 export function makeDish() {
-  return cloneArt(requireArt('dish'), { kind: 'dish', name_zh: '托盘' });
+  return cloneArt(requireArt('dish'), { kind: 'dish', name_zh: '托盘' }, 'dish');
 }
 
 export function makeBird(species) {

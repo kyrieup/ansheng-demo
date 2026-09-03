@@ -13,6 +13,7 @@ import { countOf, landDelayMul } from './config/fauna.js';
 import { REED_GROW_DUR, REED_GROW_DUR_JITTER, easeOutCubic, delayAlongStroke } from './config/magic.js';
 import { makeBird, makeReedCluster } from './art/slots.js';
 import { audio } from './audio/hooks.js';
+import { DEFAULT_TOD } from './config/look.js';
 
 const MAX_REEDS = 1600;
 
@@ -75,7 +76,7 @@ export class Wetland {
     this.reeds = [];
     this.reedMode = 'gltf';
     this.tide = 0.52;
-    this.tod = 0.2;
+    this.tod = DEFAULT_TOD;
     this.time = 0;
     this.grid = null;
     this.strokes = [];
@@ -160,31 +161,46 @@ export class Wetland {
         const edge = sdf > -0.28 && sdf < 0.16;
         const interior = type === TYPE.narrow && sdf < -0.04 && sdf > -0.55;
         if (!edge && !interior) continue;
-        const dens = type === TYPE.narrow ? 0.7 : type === TYPE.river ? 0.38 : 0.22;
-        const extra = interior ? 0.22 : 0;
-        if (hash2(i, j, 3) > dens + extra) continue;
+        // Coarse field → distinct foliage islands, not a uniform toothpick hedge.
+        const clump = hash2(Math.floor(i / 4), Math.floor(j / 4), 5);
+        const inClump = type === TYPE.narrow ? clump > 0.28 : type === TYPE.river ? clump > 0.42 : clump > 0.52;
+        let keep;
+        if (type === TYPE.narrow) {
+          // 湿草 / reed-dense: thick along the stroke, extra-dense in clumps.
+          keep = inClump ? 0.96 : 0.55;
+          if (interior) keep = Math.max(keep, 0.78);
+        } else if (type === TYPE.river) {
+          keep = inClump ? 0.58 : 0.18;
+        } else {
+          keep = inClump ? 0.3 : 0.08;
+        }
+        if (hash2(i, j, 3) > keep) continue;
         const density = densityFor(type);
-        if (next.length >= MAX_REEDS) break;
-        const ox = (hash2(i, j, 11) - 0.5) * 0.11;
-        const oz = (hash2(i, j, 17) - 0.5) * 0.11;
-        const x = p.x + ox;
-        const z = p.y + oz;
-        const key = `reed:${i}:${j}:0`;
-        const yaw = hash2(i, j, 9) * Math.PI * 2;
-        const old = prev.get(key);
-        if (!old) spawned = true;
-        next.push({
-          key,
-          x,
-          z,
-          yaw,
-          density,
-          lean: (hash2(i, j, 13) - 0.5) * 0.18,
-          delay: old ? old.delay : delayAlongStroke(x, z, growPath),
-          dur: old ? old.dur : REED_GROW_DUR + hash2(i, j, 2) * REED_GROW_DUR_JITTER,
-          t: old ? old.t : 0,
-          obj: old && old.obj && old.density === density ? old.obj : null,
-        });
+        const extras = type === TYPE.narrow && inClump && hash2(i, j, 21) > 0.62 ? 1 : 0;
+        for (let k = 0; k <= extras; k++) {
+          if (next.length >= MAX_REEDS) break;
+          const spread = k ? 0.22 : 0.1;
+          const ox = (hash2(i, j, 11 + k * 3) - 0.5) * spread;
+          const oz = (hash2(i, j, 17 + k * 5) - 0.5) * spread;
+          const x = p.x + ox;
+          const z = p.y + oz;
+          const key = `reed:${i}:${j}:${k}`;
+          const yaw = hash2(i, j, 9 + k) * Math.PI * 2;
+          const old = prev.get(key);
+          if (!old) spawned = true;
+          next.push({
+            key,
+            x,
+            z,
+            yaw,
+            density,
+            lean: (hash2(i, j, 13 + k) - 0.5) * 0.18,
+            delay: old ? old.delay : delayAlongStroke(x, z, growPath),
+            dur: old ? old.dur : REED_GROW_DUR + hash2(i, j, 2 + k) * REED_GROW_DUR_JITTER,
+            t: old ? old.t : 0,
+            obj: old && old.obj && old.density === density ? old.obj : null,
+          });
+        }
       }
     }
 

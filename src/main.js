@@ -22,7 +22,7 @@ import { loadSlots, setMats, makeDish } from './art/slots.js';
 import { save as persistSave, load as loadSave, skipLoad } from './save/local.js';
 import { audio } from './audio/hooks.js';
 import { createMirrors, rebuildMirrors, applyTideMirrors, syncMirrors } from './render/mirrors.js';
-import { SKY_STOPS, loadSkyFogJson } from './config/look.js';
+import { SKY_STOPS, loadSkyFogJson, DEFAULT_TOD, DEFAULT_TIDE, MOOD_LOOKS } from './config/look.js';
 
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({
@@ -32,7 +32,7 @@ const renderer = new THREE.WebGLRenderer({
 });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
-renderer.shadowMap.enabled = false;
+renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -61,19 +61,30 @@ controls.mouseButtons = {
 };
 controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_ROTATE };
 
-const hemi = new THREE.HemisphereLight(0xe6efe4, 0x3a4538, 0.95);
+const hemi = new THREE.HemisphereLight(0x8fa092, 0x243028, 0.28);
 scene.add(hemi);
-const sun = new THREE.DirectionalLight(0xf2f0e0, 0.9);
+const sun = new THREE.DirectionalLight(0xffb060, 0.98);
 sun.position.set(8, 8, 5);
-sun.castShadow = false;
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.bias = -0.0006;
+sun.shadow.normalBias = 0.04;
+sun.shadow.camera.near = 1;
+sun.shadow.camera.far = 42;
+sun.shadow.camera.left = -11;
+sun.shadow.camera.right = 11;
+sun.shadow.camera.top = 11;
+sun.shadow.camera.bottom = -11;
+sun.shadow.camera.updateProjectionMatrix();
+sun.target.position.set(0, 0.15, 0);
 scene.add(sun);
-scene.add(new THREE.AmbientLight(0xe8eee0, 0.5));
+scene.add(sun.target);
 
 const mats = makePalette();
 setMats(mats);
 const grid = new WaterGrid();
-let tide = 0.52;
-let tod = 0.2;
+let tide = DEFAULT_TIDE;
+let tod = DEFAULT_TOD;
 const island = createIsland(grid, mats, tide);
 scene.add(island);
 const water = createWater(grid);
@@ -320,10 +331,10 @@ function resetAll() {
   strokes = [];
   nextId = 1;
   history.length = 0;
-  tide = 0.52;
-  tod = 0.2;
-  document.getElementById('tide').value = '52';
-  document.getElementById('tod').value = '20';
+  tide = DEFAULT_TIDE;
+  tod = DEFAULT_TOD;
+  document.getElementById('tide').value = String(Math.round(DEFAULT_TIDE * 100));
+  document.getElementById('tod').value = String(Math.round(DEFAULT_TOD * 100));
   rebuildGridFromStrokes();
   applyTimeOfDay(tod, ctx);
   finishRebuild(null);
@@ -429,11 +440,30 @@ window.addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
 });
 
+function applyMoodLook() {
+  const mood = bootParams.get('mood');
+  const look = mood ? MOOD_LOOKS[mood] : null;
+  if (!look) return false;
+  tide = look.tide;
+  tod = look.tod;
+  wetland.tod = tod;
+  document.getElementById('tide').value = String(Math.round(tide * 100));
+  document.getElementById('tod').value = String(Math.round(tod * 100));
+  applyTimeOfDay(tod, ctx);
+  rebuildWater(water, grid, tide);
+  updateIsland(island, grid, tide);
+  wetland.applyTide(tide);
+  applyTideMirrors(mirrors, tide);
+  return true;
+}
+
 function playDemoStrokes() {
   if (bootParams.has('shot') || bootParams.has('river') || bootParams.has('empty')) {
     document.body.classList.add('shot');
   }
-  if (bootParams.has('shot') || bootParams.has('river')) {
+  applyMoodLook();
+  if (bootParams.has('empty')) return;
+  if (bootParams.has('shot') || bootParams.has('river') || bootParams.has('mood')) {
     width = 'river';
     strokePts = [];
     if (bootParams.has('river') && !bootParams.has('shot')) {
@@ -464,6 +494,9 @@ function playDemoStrokes() {
       commitStroke();
     }
     wetland.snapGrow();
+    applyMoodLook();
+    wetland.tod = tod;
+    wetland.rebuildFauna();
     rebuildMirrors(mirrors, wetland, tide);
   }
 }

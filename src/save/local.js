@@ -1,6 +1,6 @@
 export const SAVE_KEY = 'ansheng-v1';
 
-const SKIP = ['shot', 'river', 'empty', 'drawn'];
+const SKIP = ['shot', 'river', 'empty', 'drawn', 'mood'];
 
 export function skipLoad(search = typeof location !== 'undefined' ? location.search : '') {
   const q = new URLSearchParams(search.startsWith('?') || search.length === 0 ? search : `?${search}`);

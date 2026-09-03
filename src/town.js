@@ -11,16 +11,10 @@ import {
 } from './world.js';
 import { countOf, landDelayMul } from './config/fauna.js';
 import { REED_GROW_DUR, REED_GROW_DUR_JITTER, easeOutCubic, delayAlongStroke } from './config/magic.js';
-import { createReedInstances } from './art/primitives.js';
-import { makeBird, makeReedCluster, hasReedGltf } from './art/slots.js';
+import { makeBird, makeReedCluster } from './art/slots.js';
 import { audio } from './audio/hooks.js';
 
 const MAX_REEDS = 1600;
-const _m = new THREE.Matrix4();
-const _q = new THREE.Quaternion();
-const _p = new THREE.Vector3();
-const _s = new THREE.Vector3();
-const _e = new THREE.Euler();
 
 function densityFor(type) {
   if (type === TYPE.narrow) return 'lush';
@@ -71,12 +65,6 @@ export class Wetland {
     this.group.name = 'wetland';
     scene.add(this.group);
 
-    const field = createReedInstances(mats, MAX_REEDS);
-    this.stems = field.stems;
-    this.heads = field.heads;
-    this.group.add(this.stems);
-    this.group.add(this.heads);
-
     this.reedGroup = new THREE.Group();
     this.reedGroup.name = 'reedClusters';
     this.group.add(this.reedGroup);
@@ -85,7 +73,7 @@ export class Wetland {
     this.group.add(this.birdsGroup);
     this.liveBirds = new Map();
     this.reeds = [];
-    this.reedMode = 'instance';
+    this.reedMode = 'gltf';
     this.tide = 0.52;
     this.tod = 0.2;
     this.time = 0;
@@ -96,8 +84,6 @@ export class Wetland {
   clear() {
     this._clearReedObjects();
     this.reeds = [];
-    this.stems.count = 0;
-    this.heads.count = 0;
     for (const b of this.liveBirds.values()) this.birdsGroup.remove(b.mesh);
     this.liveBirds.clear();
   }
@@ -178,33 +164,27 @@ export class Wetland {
         const extra = interior ? 0.22 : 0;
         if (hash2(i, j, 3) > dens + extra) continue;
         const density = densityFor(type);
-        const useGltf = hasReedGltf(density);
-        const nClump = useGltf ? 1 : type === TYPE.narrow ? 1 + (hash2(i, j, 8) > 0.55 ? 1 : 0) : 1;
-        for (let k = 0; k < nClump; k++) {
-          if (next.length >= MAX_REEDS) break;
-          const ox = (hash2(i, j, 11 + k) - 0.5) * 0.11;
-          const oz = (hash2(i, j, 17 + k) - 0.5) * 0.11;
-          const x = p.x + ox;
-          const z = p.y + oz;
-          const key = `reed:${i}:${j}:${k}`;
-          const h = 0.32 + hash2(i, j, 4 + k) * (type === TYPE.narrow ? 0.55 : 0.38);
-          const yaw = hash2(i, j, 9 + k) * Math.PI * 2;
-          const old = prev.get(key);
-          if (!old) spawned = true;
-          next.push({
-            key,
-            x,
-            z,
-            h,
-            yaw,
-            density,
-            lean: (hash2(i, j, 13 + k) - 0.5) * 0.18,
-            delay: old ? old.delay : delayAlongStroke(x, z, growPath),
-            dur: old ? old.dur : REED_GROW_DUR + hash2(i, j, 2) * REED_GROW_DUR_JITTER,
-            t: old ? old.t : 0,
-            obj: old && old.obj && old.density === density ? old.obj : null,
-          });
-        }
+        if (next.length >= MAX_REEDS) break;
+        const ox = (hash2(i, j, 11) - 0.5) * 0.11;
+        const oz = (hash2(i, j, 17) - 0.5) * 0.11;
+        const x = p.x + ox;
+        const z = p.y + oz;
+        const key = `reed:${i}:${j}:0`;
+        const yaw = hash2(i, j, 9) * Math.PI * 2;
+        const old = prev.get(key);
+        if (!old) spawned = true;
+        next.push({
+          key,
+          x,
+          z,
+          yaw,
+          density,
+          lean: (hash2(i, j, 13) - 0.5) * 0.18,
+          delay: old ? old.delay : delayAlongStroke(x, z, growPath),
+          dur: old ? old.dur : REED_GROW_DUR + hash2(i, j, 2) * REED_GROW_DUR_JITTER,
+          t: old ? old.t : 0,
+          obj: old && old.obj && old.density === density ? old.obj : null,
+        });
       }
     }
 
@@ -213,25 +193,14 @@ export class Wetland {
       if (r.obj && !keep.has(r.obj)) this.reedGroup.remove(r.obj);
     }
 
-    const anyGltf = next.some((r) => hasReedGltf(r.density));
-    this.reedMode = anyGltf ? 'gltf' : 'instance';
-
-    if (this.reedMode === 'gltf') {
-      this.stems.count = 0;
-      this.heads.count = 0;
-      for (const r of next) {
-        if (!r.obj) {
-          r.obj = makeReedCluster(r.density);
-          this.reedGroup.add(r.obj);
-        }
-        r.obj.position.set(r.x, 0, r.z);
-        r.obj.rotation.y = r.yaw;
+    this.reedMode = 'gltf';
+    for (const r of next) {
+      if (!r.obj) {
+        r.obj = makeReedCluster(r.density);
+        this.reedGroup.add(r.obj);
       }
-    } else {
-      this._clearReedObjects();
-      for (const r of next) r.obj = null;
-      this.stems.count = next.length;
-      this.heads.count = next.length;
+      r.obj.position.set(r.x, 0, r.z);
+      r.obj.rotation.y = r.yaw;
     }
 
     this.reeds = next;
@@ -241,37 +210,15 @@ export class Wetland {
 
   _writeReeds(time) {
     const wind = Math.sin(time * 1.15) * 0.05;
-    if (this.reedMode === 'gltf') {
-      for (const r of this.reeds) {
-        if (!r.obj) continue;
-        const u = THREE.MathUtils.clamp((r.t - r.delay) / r.dur, 0, 1);
-        const grow = easeOutCubic(u);
-        r.obj.visible = grow > 0.02;
-        r.obj.scale.set(1, Math.max(0.001, grow), 1);
-        r.obj.rotation.z = r.lean + wind * 0.35;
-        r.obj.rotation.x = wind * 0.2;
-      }
-      return;
-    }
-    for (let i = 0; i < this.reeds.length; i++) {
-      const r = this.reeds[i];
+    for (const r of this.reeds) {
+      if (!r.obj) continue;
       const u = THREE.MathUtils.clamp((r.t - r.delay) / r.dur, 0, 1);
       const grow = easeOutCubic(u);
-      const h = r.h * Math.max(0.001, grow);
-      _p.set(r.x, h * 0.5, r.z);
-      _e.set(r.lean + wind * (0.4 + r.h), r.yaw, wind * 0.35);
-      _q.setFromEuler(_e);
-      _s.set(0.9 + r.h * 0.15, h, 0.9 + r.h * 0.15);
-      _m.compose(_p, _q, _s);
-      this.stems.setMatrixAt(i, _m);
-      _p.set(r.x, h + 0.01, r.z);
-      _s.set(0.85 + r.h * 0.4, 0.85 + r.h * 0.25, 0.85 + r.h * 0.4);
-      _s.multiplyScalar(Math.max(0.001, grow));
-      _m.compose(_p, _q, _s);
-      this.heads.setMatrixAt(i, _m);
+      r.obj.visible = grow > 0.02;
+      r.obj.scale.set(1, Math.max(0.001, grow), 1);
+      r.obj.rotation.z = r.lean + wind * 0.35;
+      r.obj.rotation.x = wind * 0.2;
     }
-    this.stems.instanceMatrix.needsUpdate = true;
-    this.heads.instanceMatrix.needsUpdate = true;
   }
 
   _wetStats(grid, strokes) {

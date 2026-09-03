@@ -1,10 +1,8 @@
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { ART_PATHS } from '../config/look.js';
-import * as primitives from './primitives.js';
 
 const FLAP = ['wing_l1', 'wing_l2', 'wing_r1', 'wing_r2'];
 
-/** public/art filenames. Binaries are not required on the remote; 404 → greybox. */
 export const ART_SLOT_GLBS = [
   'sparrow',
   'sandpiper',
@@ -14,35 +12,23 @@ export const ART_SLOT_GLBS = [
   'reed',
   'reed-dense',
   'reed-sparse',
+  'dish',
 ];
-
-const OPTIONAL_GLBS = ['dish'];
 
 export const FAUNA_FILES = Object.fromEntries(
   ['sparrow', 'sandpiper', 'duck', 'heron', 'dragonfly'].map((n) => [n, `${n}.glb`])
 );
 
-let mats = null;
-const gltf = Object.fromEntries([...ART_SLOT_GLBS, ...OPTIONAL_GLBS].map((n) => [n, null]));
-
+const gltf = Object.fromEntries(ART_SLOT_GLBS.map((n) => [n, null]));
 const loader = new GLTFLoader();
 
-/** Fetch /art/<name>.glb. 404 / HTML / bad magic → null. Never throws. */
-async function tryGltf(url) {
+async function loadGltf(url) {
   try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const ct = res.headers.get('content-type') || '';
-    if (ct.includes('text/html')) return null;
-    const buf = await res.arrayBuffer();
-    if (buf.byteLength < 12) return null;
-    const magic = new TextDecoder().decode(new Uint8Array(buf.slice(0, 4)));
-    if (magic !== 'glTF') return null;
-    return await new Promise((resolve, reject) => {
-      loader.parse(buf, '/art/', (g) => resolve(g.scene), reject);
-    });
-  } catch (_) {
-    return null;
+    const asset = await loader.loadAsync(url);
+    return asset.scene;
+  } catch (err) {
+    console.error(`[art] failed to load required ${url}`, err);
+    throw err;
   }
 }
 
@@ -55,6 +41,16 @@ function cloneArt(src, extras) {
   return g;
 }
 
+function requireArt(name) {
+  const src = gltf[name];
+  if (!src) {
+    const err = new Error(`[art] required glTF not loaded: /art/${name}.glb`);
+    console.error(err.message);
+    throw err;
+  }
+  return src;
+}
+
 function tagDragonfly(root) {
   const wings = [];
   for (const name of FLAP) {
@@ -65,78 +61,61 @@ function tagDragonfly(root) {
   return root;
 }
 
-export async function loadSlots(palette) {
-  mats = palette;
-  const names = [...ART_SLOT_GLBS, ...OPTIONAL_GLBS];
+export async function loadSlots() {
   await Promise.all(
-    names.map(async (key) => {
+    ART_SLOT_GLBS.map(async (key) => {
       const url = key === 'dish' ? ART_PATHS.dish : `/art/${key}.glb`;
-      gltf[key] = await tryGltf(url);
+      gltf[key] = await loadGltf(url);
     })
   );
   return gltf;
 }
 
-export function setMats(palette) {
-  mats = palette;
-}
+export function setMats(_palette) {}
 
 export function hasGltf(name) {
   return !!gltf[name];
 }
 
 export function reedTemplate(density) {
-  if (density === 'lush' && gltf['reed-dense']) return gltf['reed-dense'];
-  if (density === 'sparse' && gltf['reed-sparse']) return gltf['reed-sparse'];
-  if (gltf.reed) return gltf.reed;
-  return null;
+  if (density === 'lush') return requireArt('reed-dense');
+  if (density === 'sparse') return requireArt('reed-sparse');
+  return requireArt('reed');
 }
 
-export function hasReedGltf(density) {
-  return !!reedTemplate(density);
-}
-
-function fauna(species, kind, name_zh, fallback) {
-  const src = gltf[species];
-  const extras = { kind, species, name_zh };
-  if (src) {
-    const g = cloneArt(src, extras);
-    if (species === 'dragonfly') tagDragonfly(g);
-    return g;
-  }
-  return fallback();
+function fauna(species, kind, name_zh) {
+  const g = cloneArt(requireArt(species), { kind, species, name_zh });
+  if (species === 'dragonfly') tagDragonfly(g);
+  return g;
 }
 
 export function makeSparrow() {
-  return fauna('sparrow', 'bird', '雀', () => primitives.makeSparrow(mats));
+  return fauna('sparrow', 'bird', '雀');
 }
 
 export function makeSandpiper() {
-  return fauna('sandpiper', 'bird', '鹬', () => primitives.makeSandpiper(mats));
+  return fauna('sandpiper', 'bird', '鹬');
 }
 
 export function makeDuck() {
-  return fauna('duck', 'bird', '鸭', () => primitives.makeDuck(mats));
+  return fauna('duck', 'bird', '鸭');
 }
 
 export function makeHeron() {
-  return fauna('heron', 'bird', '鹭', () => primitives.makeHeron(mats));
+  return fauna('heron', 'bird', '鹭');
 }
 
 export function makeDragonfly() {
-  return fauna('dragonfly', 'dragonfly', '蜻蜓', () => primitives.makeDragonfly(mats));
+  return fauna('dragonfly', 'dragonfly', '蜻蜓');
 }
 
 export function makeReedCluster(density = 'lush') {
   const src = reedTemplate(density);
-  const extras = { kind: 'reed', species: 'reed', name_zh: '芦苇', density };
-  if (src) return cloneArt(src, extras);
-  return primitives.makeReedCluster(mats, density);
+  return cloneArt(src, { kind: 'reed', species: 'reed', name_zh: '芦苇', density });
 }
 
 export function makeDish() {
-  if (!gltf.dish) return null;
-  return cloneArt(gltf.dish, { kind: 'dish', name_zh: '托盘' });
+  return cloneArt(requireArt('dish'), { kind: 'dish', name_zh: '托盘' });
 }
 
 export function makeBird(species) {

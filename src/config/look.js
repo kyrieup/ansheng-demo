@@ -14,7 +14,7 @@ export const WATER_WET = 0x2a6b68;
 
 export const SUN_DUSK = 0xffb060;
 
-/** Reserved public/art paths. Files are not required on the remote; 404 → greybox defaults. */
+/** Reserved public/art paths. Loaded as required assets. */
 export const ART_PATHS = {
   terrain: '/art/terrain.png',
   water: '/art/water.png',
@@ -57,10 +57,11 @@ function parseHexColor(v) {
   return parseInt(s, 16);
 }
 
-/** Merge /art/sky-fog.json onto SKY_STOPS. Invalid or partial keys keep locked defaults. */
+/** Merge /art/sky-fog.json onto SKY_STOPS. */
 export function applySkyFogJson(data) {
   if (!data || typeof data !== 'object') return false;
-  const root = data.fog && typeof data.fog === 'object' ? data.fog : data;
+  const root = data.sky_fog || data.fog || data;
+  if (!root || typeof root !== 'object') return false;
   let used = false;
   for (const stop of SKY_STOPS) {
     const src = root[stop.name];
@@ -79,16 +80,16 @@ export function applySkyFogJson(data) {
   return used;
 }
 
-/** 404 / HTML / bad JSON → false (keep look.js defaults). Never throws. */
+/** Required /art/sky-fog.json. Fail loudly; do not keep silent defaults on fetch error. */
 export async function loadSkyFogJson() {
   try {
     const res = await fetch(ART_PATHS.skyFog);
-    if (!res.ok) return false;
-    const ct = res.headers.get('content-type') || '';
-    if (ct.includes('text/html')) return false;
+    if (!res.ok) throw new Error(`${ART_PATHS.skyFog} HTTP ${res.status}`);
     const data = await res.json();
-    return applySkyFogJson(data);
-  } catch (_) {
-    return false;
+    if (!applySkyFogJson(data)) throw new Error(`${ART_PATHS.skyFog} missing dawn/day/dusk/night`);
+    return true;
+  } catch (err) {
+    console.error(`[art] failed to load required ${ART_PATHS.skyFog}`, err);
+    throw err;
   }
 }

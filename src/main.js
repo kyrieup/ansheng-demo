@@ -7,7 +7,6 @@ import {
   WaterGrid,
   createIsland,
   updateIsland,
-  createDish,
   createWater,
   rebuildWater,
   insideIsland,
@@ -15,7 +14,7 @@ import {
   polylineLength,
   findIntersections,
   applyTimeOfDay,
-  loadOptionalArtTextures,
+  loadArtTextures,
   applyArtTextures,
 } from './world.js';
 import { Wetland } from './town.js';
@@ -77,8 +76,6 @@ let tide = 0.52;
 let tod = 0.2;
 const island = createIsland(grid, mats, tide);
 scene.add(island);
-let dish = createDish(mats);
-scene.add(dish);
 const water = createWater(grid);
 rebuildWater(water, grid, tide);
 scene.add(water);
@@ -483,14 +480,9 @@ function frame() {
 
 async function boot() {
   audio.ambient();
-  await loadSlots(mats);
-  const artDish = makeDish();
-  if (artDish) {
-    scene.remove(dish);
-    dish = artDish;
-    scene.add(dish);
-  }
-  applyArtTextures(island, water, await loadOptionalArtTextures());
+  await loadSlots();
+  scene.add(makeDish());
+  applyArtTextures(island, water, await loadArtTextures());
   await loadSkyFogJson();
   applyTimeOfDay(tod, ctx);
   rebuildWater(water, grid, tide);

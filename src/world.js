@@ -594,49 +594,43 @@ const LIGHT_STOPS = [
   { t: 1, sun: 0x6a7390, sunI: 0.06, hemi: 0x3a3c58, hemiI: 0.32, ang: 0.08 },
 ];
 
-async function tryPng(url) {
+async function loadPng(url) {
   try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const ct = res.headers.get('content-type') || '';
-    if (ct.includes('text/html')) return null;
-    const buf = await res.arrayBuffer();
-    const b = new Uint8Array(buf);
-    if (b.length < 8 || b[0] !== 0x89 || b[1] !== 0x50 || b[2] !== 0x4e || b[3] !== 0x47) return null;
-    const obj = URL.createObjectURL(new Blob([buf], { type: 'image/png' }));
-    const tex = await new THREE.TextureLoader().loadAsync(obj);
-    URL.revokeObjectURL(obj);
+    const tex = await new THREE.TextureLoader().loadAsync(url);
     tex.colorSpace = THREE.SRGBColorSpace;
     return tex;
-  } catch (_) {
-    return null;
+  } catch (err) {
+    console.error(`[art] failed to load required ${url}`, err);
+    throw err;
   }
 }
 
-export async function loadOptionalArtTextures() {
+export async function loadArtTextures() {
   return {
-    terrain: await tryPng(ART_PATHS.terrain),
-    water: await tryPng(ART_PATHS.water),
+    terrain: await loadPng(ART_PATHS.terrain),
+    water: await loadPng(ART_PATHS.water),
   };
 }
 
 /** PNG maps multiply with existing colors. They must not replace soak / tide lerps. */
 export function applyArtTextures(island, water, tex) {
-  if (tex.terrain && island) {
-    tex.terrain.wrapS = THREE.RepeatWrapping;
-    tex.terrain.wrapT = THREE.RepeatWrapping;
-    tex.terrain.repeat.set(4, 4);
-    island.material.color.set(0xffffff);
-    island.material.vertexColors = true;
-    island.material.map = tex.terrain;
-    island.material.needsUpdate = true;
+  if (!tex?.terrain || !tex?.water) {
+    const err = new Error('[art] required terrain.png / water.png not loaded');
+    console.error(err.message);
+    throw err;
   }
-  if (tex.water && water?.userData.waterMat) {
-    tex.water.wrapS = THREE.ClampToEdgeWrapping;
-    tex.water.wrapT = THREE.ClampToEdgeWrapping;
-    tex.water.repeat.set(1, 1);
-    water.userData.waterMat.map = tex.water;
-    water.userData.waterMat.needsUpdate = true;
-  }
+  tex.terrain.wrapS = THREE.RepeatWrapping;
+  tex.terrain.wrapT = THREE.RepeatWrapping;
+  tex.terrain.repeat.set(4, 4);
+  island.material.color.set(0xffffff);
+  island.material.vertexColors = true;
+  island.material.map = tex.terrain;
+  island.material.needsUpdate = true;
+
+  tex.water.wrapS = THREE.ClampToEdgeWrapping;
+  tex.water.wrapT = THREE.ClampToEdgeWrapping;
+  tex.water.repeat.set(1, 1);
+  water.userData.waterMat.map = tex.water;
+  water.userData.waterMat.needsUpdate = true;
 }
 

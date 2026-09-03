@@ -55,35 +55,29 @@ URL flags `shot`, `river`, `empty`, `drawn` skip loading that save. 重置 clear
 
 ## Art slots
 
-Logic is not bound to BoxGeometry. Drop files into `public/art/` (served as `/art/`).
-The glTF / PNG / JSON art files are **not required on the GitHub remote**. A 404 (or HTML stand-in) keeps greybox. When they land on this branch they start loading.
+Required files in `public/art/` (served as `/art/`). Loaded directly — no 404→greybox swap for these slots.
 
-Reserved `public/art/` paths (same 404→greybox rule):
-
-- `/art/{sparrow,sandpiper,duck,heron,dragonfly,reed,reed-dense,reed-sparse}.glb` — scale 1, Y-up, face +X
+- `/art/{sparrow,sandpiper,duck,heron,dragonfly,reed,reed-dense,reed-sparse,dish}.glb` — clone at scale 1, Y-up, face +X
 - `/art/terrain.png` — multiply with vertex dry/wet soak colors
 - `/art/water.png` — multiply with tide tint (`#6B8F6A` → `#2A6B68`)
-- `/art/dish.glb` — Y-up, lip radius 7.55, scale 1, dish `#5C564C`
-- `/art/sky-fog.json` — dawn/day/dusk/night `{ color, density }`; missing keeps the locked defaults below
-
-Terrain and water are **PNG only** (not glb). Fog/sky are **color values only** (no sky texture). Dish is **glb**.
+- `/art/sky-fog.json` — dawn/day/dusk/night `{ color, density }` under `sky_fog`
 
 | file | use |
 | --- | --- |
-| `terrain.png` | high-light olive grain (luma ~0.8–1). **Multiply** with island vertex soak colors. Does not replace dry/wet. |
+| `terrain.png` | olive grain. **Multiply** with island vertex soak. Does not replace dry/wet. |
 | `water.png` | soft rings. **Multiply** with `waterMat.color` tide lerp `#6B8F6A` → `#2A6B68`. |
-| `dish.glb` | Y-up, scale 1, lip radius 7.55. Dish `#5C564C`, bottom `#3E2C20`. Missing → procedural dish. |
-| `sky-fog.json` | dawn/day/dusk/night fog `{ color, density }`. Missing → locked defaults. |
+| `dish.glb` | Y-up, scale 1, lip radius 7.55, dish `#5C564C`. |
+| `sky-fog.json` | dawn/day/dusk/night fog `{ color, density }`. |
 | `reed-dense.glb` | 湿草 / lush / narrow cluster |
 | `reed-sparse.glb` | 浅沼 / river cluster |
-| `reed.glb` | single-plant fallback |
+| `reed.glb` | single plant (水面), not a box cluster |
 | `sparrow.glb` | sparrow |
 | `sandpiper.glb` | 鹬 |
 | `duck.glb` | duck (origin at waterline) |
 | `heron.glb` | heron |
 | `dragonfly.glb` | dragonfly (origin at thorax; flap `wing_l1` `wing_l2` `wing_r1` `wing_r2` if present) |
 
-Fauna/reed glTF load at scale 1, Y-up, face +X, origin at feet.
+Factories clone glTF at scale 1. Load failure logs loudly in the console and does not swap a box bird.
 
 Island vertex soak lerp (texture multiplies these, never replaces them):
 

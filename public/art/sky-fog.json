@@ -1,0 +1,46 @@
+{
+  "format": "png albedo, multiplied with vertex colors / water tint",
+  "paths": {
+    "terrain": "/workspace/ansheng-art/gltf/terrain.png",
+    "water": "/workspace/ansheng-art/gltf/water.png",
+    "dish": "/workspace/ansheng-art/gltf/dish.glb"
+  },
+  "serve_as": {
+    "terrain": "/art/terrain.png",
+    "water": "/art/water.png",
+    "dish": "/art/dish.glb"
+  },
+  "terrain": "detail grain, luma 0.78-1.0 olive. Do not replace vertex soak colors.",
+  "water": "soft rings, mid luma. Keep coloring via waterMat.color tide lerp (#6B8F6A→#2A6B68).",
+  "dish": {
+    "color": "#5C564C",
+    "bottom": "#3E2C20",
+    "axis": "Y-up, origin world 0, lip radius 7.55 matches greybox",
+    "scale": 1
+  },
+  "sky_fog": {
+    "dawn": {
+      "color": "#C5D4C8",
+      "density": 0.062
+    },
+    "day": {
+      "color": "#B4C8BC",
+      "density": 0.03
+    },
+    "dusk": {
+      "color": "#C4A080",
+      "density": 0.04
+    },
+    "night": {
+      "color": "#1B1A24",
+      "density": 0.03
+    },
+    "note": "fog.color = scene.background. No sky texture. #FFB060 is sun only, not mesh."
+  },
+  "island_vertex_lerp": {
+    "grass_dry": "#7A8B4E",
+    "grass_wet": "#4E6A38",
+    "mud_dry": "#8A6E4C",
+    "mud_wet": "#3E2C20"
+  }
+}

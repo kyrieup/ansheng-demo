@@ -83,9 +83,9 @@ Required files in `public/art/` (served as `/art/`). Loaded directly — no 404�
 | `water.png` | soft rings. **Multiply** with `waterMat.color` tide lerp `#6B8F6A` → `#2A6B68`. |
 | `dish.glb` | Y-up, scale 1, lip radius 7.55, dish `#5C564C`. |
 | `sky-fog.json` | dawn/day/dusk/night fog `{ color, density }`. |
-| `reed-dense.glb` | 湿草 / lush / narrow cluster |
-| `reed-sparse.glb` | 浅沼 / river cluster |
-| `reed.glb` | single plant (水面), not a box cluster |
+| `reed-dense.glb` | 湿草 / lush / dense / narrow cluster. Root leaf mass. Never swap `reed.glb` here. |
+| `reed-sparse.glb` | 浅沼 / river cluster. See-through, no extra root blob. |
+| `reed.glb` | single plant fallback (水面), not a wet-grass cluster |
 | `sparrow.glb` | sparrow |
 | `sandpiper.glb` | 鹬 |
 | `duck.glb` | duck (origin at waterline) |

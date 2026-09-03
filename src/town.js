@@ -11,14 +11,14 @@ import {
 } from './world.js';
 import { countOf, landDelayMul } from './config/fauna.js';
 import { REED_GROW_DUR, REED_GROW_DUR_JITTER, easeOutCubic, delayAlongStroke } from './config/magic.js';
-import { makeBird, makeReedCluster } from './art/slots.js';
+import { makeBird, makeReedCluster, reedSlotName } from './art/slots.js';
 import { audio } from './audio/hooks.js';
 import { DEFAULT_TOD } from './config/look.js';
 
 const MAX_REEDS = 1600;
 
 function densityFor(type) {
-  if (type === TYPE.narrow) return 'lush';
+  if (type === TYPE.narrow) return 'dense';
   if (type === TYPE.river) return 'sparse';
   return 'single';
 }
@@ -176,6 +176,7 @@ export class Wetland {
         }
         if (hash2(i, j, 3) > keep) continue;
         const density = densityFor(type);
+        const slot = reedSlotName(density);
         const extras = type === TYPE.narrow && inClump && hash2(i, j, 21) > 0.62 ? 1 : 0;
         for (let k = 0; k <= extras; k++) {
           if (next.length >= MAX_REEDS) break;
@@ -193,12 +194,13 @@ export class Wetland {
             x,
             z,
             yaw,
+            type,
             density,
             lean: (hash2(i, j, 13 + k) - 0.5) * 0.18,
             delay: old ? old.delay : delayAlongStroke(x, z, growPath),
             dur: old ? old.dur : REED_GROW_DUR + hash2(i, j, 2 + k) * REED_GROW_DUR_JITTER,
             t: old ? old.t : 0,
-            obj: old && old.obj && old.density === density ? old.obj : null,
+            obj: old && old.obj && old.obj.userData.artSlot === slot ? old.obj : null,
           });
         }
       }
@@ -212,7 +214,7 @@ export class Wetland {
     this.reedMode = 'gltf';
     for (const r of next) {
       if (!r.obj) {
-        r.obj = makeReedCluster(r.density);
+        r.obj = makeReedCluster(r.density, r.type);
         this.reedGroup.add(r.obj);
       }
       r.obj.position.set(r.x, 0, r.z);

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { ART_PATHS } from '../config/look.js';
+import { TYPE } from '../world.js';
 
 const FLAP = ['wing_l1', 'wing_l2', 'wing_r1', 'wing_r2'];
 
@@ -21,11 +22,11 @@ export const FAUNA_FILES = Object.fromEntries(
 );
 
 const gltf = Object.fromEntries(ART_SLOT_GLBS.map((n) => [n, null]));
-const loader = new GLTFLoader();
 
 async function loadGltf(url) {
   try {
-    const asset = await loader.loadAsync(url);
+    const isolated = new GLTFLoader();
+    const asset = await isolated.loadAsync(url);
     return asset.scene;
   } catch (err) {
     console.error(`[art] failed to load required ${url}`, err);
@@ -133,10 +134,31 @@ export function hasGltf(name) {
   return !!gltf[name];
 }
 
+/**
+ * Wet-grass / lush / narrow → reed-dense.glb (root leaf mass).
+ * Shallow marsh / river → reed-sparse.glb (see-through, no extra root blob).
+ * reed.glb is the single-plant fallback only — never the wet-grass cluster.
+ */
+export function reedSlotName(density) {
+  const d = String(density ?? 'lush').toLowerCase().trim();
+  if (
+    d === 'lush' ||
+    d === 'dense' ||
+    d === 'narrow' ||
+    d === 'wet-grass' ||
+    d === 'wetgrass' ||
+    d === 'reed-dense'
+  ) {
+    return 'reed-dense';
+  }
+  if (d === 'sparse' || d === 'river' || d === 'shallow' || d === 'shallow-marsh' || d === 'reed-sparse') {
+    return 'reed-sparse';
+  }
+  return 'reed';
+}
+
 export function reedTemplate(density) {
-  if (density === 'lush') return requireArt('reed-dense');
-  if (density === 'sparse') return requireArt('reed-sparse');
-  return requireArt('reed');
+  return requireArt(reedSlotName(density));
 }
 
 function fauna(species, kind, name_zh) {
@@ -166,9 +188,21 @@ export function makeDragonfly() {
   return fauna('dragonfly', 'dragonfly', '蜻蜓');
 }
 
-export function makeReedCluster(density = 'lush') {
-  const src = reedTemplate(density);
-  return cloneArt(src, { kind: 'reed', species: 'reed', name_zh: '芦苇', density }, 'reed');
+export function makeReedCluster(density = 'lush', type) {
+  let slot = reedSlotName(density);
+  if (type === TYPE.narrow) slot = 'reed-dense';
+  else if (type === TYPE.river) slot = 'reed-sparse';
+  else if (type === TYPE.harbor) slot = 'reed';
+  const src = requireArt(slot);
+  if (slot === 'reed-dense' && !src.getObjectByName('leaves')) {
+    const err = new Error('[art] wet-grass must clone reed-dense.glb (root leaf mass), not reed.glb');
+    console.error(err.message);
+    throw err;
+  }
+  const g = cloneArt(src, { kind: 'reed', species: 'reed', name_zh: '芦苇', density, artSlot: slot }, 'reed');
+  g.name = slot;
+  g.scale.set(1, 1, 1);
+  return g;
 }
 
 export function makeDish() {

@@ -654,7 +654,7 @@ export async function loadArtTextures() {
   };
 }
 
-/** PNG maps multiply with existing colors. They must not replace soak / tide lerps. */
+/** PNG v2 maps are near-white grain. They multiply vertex soak / tide lerp and must not replace them. */
 export function applyArtTextures(island, water, tex) {
   if (!tex?.terrain || !tex?.water) {
     const err = new Error('[art] required terrain.png / water.png not loaded');
@@ -664,9 +664,9 @@ export function applyArtTextures(island, water, tex) {
   tex.terrain.wrapS = THREE.RepeatWrapping;
   tex.terrain.wrapT = THREE.RepeatWrapping;
   tex.terrain.repeat.set(4, 4);
-  island.material.color.set(0xffffff);
-  island.material.vertexColors = true;
   island.material.map = tex.terrain;
+  island.material.vertexColors = true;
+  island.material.color.set(0xffffff);
   island.material.toneMapped = true;
   island.material.needsUpdate = true;
 

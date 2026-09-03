@@ -2,29 +2,31 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as primitives from './primitives.js';
 
 const FLAP = ['wing_l1', 'wing_l2', 'wing_r1', 'wing_r2'];
-const FAUNA_FILES = {
-  sparrow: 'sparrow.glb',
-  sandpiper: 'sandpiper.glb',
-  duck: 'duck.glb',
-  heron: 'heron.glb',
-  dragonfly: 'dragonfly.glb',
-};
+
+/** public/art filenames. Binaries are not required on the remote; 404 → greybox. */
+export const ART_SLOT_GLBS = [
+  'sparrow',
+  'sandpiper',
+  'duck',
+  'heron',
+  'dragonfly',
+  'reed',
+  'reed-dense',
+  'reed-sparse',
+];
+
+const OPTIONAL_GLBS = ['dish'];
+
+export const FAUNA_FILES = Object.fromEntries(
+  ['sparrow', 'sandpiper', 'duck', 'heron', 'dragonfly'].map((n) => [n, `${n}.glb`])
+);
 
 let mats = null;
-const gltf = {
-  sparrow: null,
-  sandpiper: null,
-  duck: null,
-  heron: null,
-  dragonfly: null,
-  'reed-dense': null,
-  'reed-sparse': null,
-  reed: null,
-  dish: null,
-};
+const gltf = Object.fromEntries([...ART_SLOT_GLBS, ...OPTIONAL_GLBS].map((n) => [n, null]));
 
 const loader = new GLTFLoader();
 
+/** Fetch /art/<name>.glb. 404 / HTML / bad magic → null. Never throws. */
 async function tryGltf(url) {
   try {
     const res = await fetch(url);
@@ -36,12 +38,7 @@ async function tryGltf(url) {
     const magic = new TextDecoder().decode(new Uint8Array(buf.slice(0, 4)));
     if (magic !== 'glTF') return null;
     return await new Promise((resolve, reject) => {
-      loader.parse(
-        buf,
-        '/art/',
-        (g) => resolve(g.scene),
-        reject
-      );
+      loader.parse(buf, '/art/', (g) => resolve(g.scene), reject);
     });
   } catch (_) {
     return null;
@@ -69,20 +66,10 @@ function tagDragonfly(root) {
 
 export async function loadSlots(palette) {
   mats = palette;
-  const files = {
-    sparrow: '/art/sparrow.glb',
-    sandpiper: '/art/sandpiper.glb',
-    duck: '/art/duck.glb',
-    heron: '/art/heron.glb',
-    dragonfly: '/art/dragonfly.glb',
-    'reed-dense': '/art/reed-dense.glb',
-    'reed-sparse': '/art/reed-sparse.glb',
-    reed: '/art/reed.glb',
-    dish: '/art/dish.glb',
-  };
+  const names = [...ART_SLOT_GLBS, ...OPTIONAL_GLBS];
   await Promise.all(
-    Object.entries(files).map(async ([key, url]) => {
-      gltf[key] = await tryGltf(url);
+    names.map(async (key) => {
+      gltf[key] = await tryGltf(`/art/${key}.glb`);
     })
   );
   return gltf;
@@ -158,4 +145,4 @@ export function makeBird(species) {
   return makeSparrow();
 }
 
-export { FAUNA_FILES, gltf };
+export { gltf };

@@ -55,7 +55,8 @@ URL flags `shot`, `river`, `empty`, `drawn` skip loading that save. 重置 clear
 
 ## Art slots
 
-Logic is not bound to BoxGeometry. Drop files into `public/art/` (served as `/art/`). Missing files greybox-fallback — do not wait for them to exist.
+Logic is not bound to BoxGeometry. Drop files into `public/art/` (served as `/art/`).
+The glTF binaries are **not required on the GitHub remote**. A 404 (or HTML stand-in) keeps greybox; when `public/art/{sparrow,sandpiper,duck,heron,dragonfly,reed,reed-dense,reed-sparse}.glb` land on this branch they start loading at scale 1, Y-up, face +X.
 
 Terrain and water are **PNG only** (not glb). Fog/sky are **color values only** (no sky texture). Dish is **glb**.
 

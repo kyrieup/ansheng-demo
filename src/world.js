@@ -302,14 +302,15 @@ const COL_GRASS_WET = new THREE.Color(GRASS_WET);
 const COL_MUD_DRY = new THREE.Color(MUD_DRY);
 const COL_MUD_WET = new THREE.Color(MUD_WET);
 const COL_SPEC_DRY = new THREE.Color(0x080908);
-const COL_SPEC_WET = new THREE.Color(0xd0e4e0);
+const COL_SPEC_WET = new THREE.Color(0x8ec4be);
 const TMP_G = new THREE.Color();
 const TMP_M = new THREE.Color();
 const TMP_C = new THREE.Color();
 
 function islandVertexColor(_x, _z, sdf, tide) {
-  const carve = smooth01(0.2, -0.08, sdf);
-  const wet = THREE.MathUtils.clamp(tide, 0, 1);
+  const carve = smooth01(0.18, -0.05, sdf);
+  // Low tide keeps dry palette; wet lerp only kicks in toward 满.
+  const wet = THREE.MathUtils.smoothstep(0.2, 0.78, THREE.MathUtils.clamp(tide, 0, 1));
   TMP_G.copy(COL_GRASS_DRY).lerp(COL_GRASS_WET, wet);
   TMP_M.copy(COL_MUD_DRY).lerp(COL_MUD_WET, wet);
   TMP_C.copy(TMP_G).lerp(TMP_M, carve);
@@ -509,10 +510,11 @@ export function rebuildWater(group, grid, tide) {
   group.userData.mudMesh.geometry = buildWetGeometry(grid, 0.22);
   group.userData.waterMesh.position.y = tideToWaterY(tide);
   const mat = group.userData.waterMat;
-  mat.opacity = THREE.MathUtils.lerp(0.18, 0.9, tide);
+  mat.opacity = THREE.MathUtils.lerp(0.18, 0.88, tide);
   mat.color.copy(COL_WATER_DRY).lerp(COL_WATER_WET, tide);
+  if (tide > 0.97) mat.color.copy(COL_WATER_WET);
   // Dry: almost no spec. High tide: tighter specular sheen (mirrors still fade with tide).
-  mat.shininess = THREE.MathUtils.lerp(1, 110, tide);
+  mat.shininess = THREE.MathUtils.lerp(1, 96, tide);
   mat.specular.copy(COL_SPEC_DRY).lerp(COL_SPEC_WET, tide);
   if ('roughness' in mat) {
     mat.roughness = THREE.MathUtils.lerp(0.96, 0.08, tide);
@@ -605,10 +607,10 @@ export function applyTimeOfDay(t, ctx) {
   ctx.scene.background = sky;
   ctx.scene.fog.color.copy(sky);
   let density = a.density + (b.density - a.density) * u;
-  // Dawn: thicker grey-green mist than the json stop, still short of hiding the dish.
+  // json dawn 0.062 eats the dish at this camera. Keep grey-green color, thinner mist.
   if (t < 0.35) {
     const mist = 1 - t / 0.35;
-    density += 0.016 * mist * mist;
+    density = THREE.MathUtils.lerp(density, 0.026, mist * mist);
   }
   ctx.scene.fog.density = density;
 
@@ -633,20 +635,19 @@ export function applyTimeOfDay(t, ctx) {
 const SKY_A = new THREE.Color();
 const SKY_B = new THREE.Color();
 const LIGHT_STOPS = [
-  // Dawn: crush sun/hemi so grey-green fog reads. Not a bright noon.
-  // Dawn: crush sun/hemi so grey-green fog reads. Not a bright noon.
-  { t: 0, sun: 0xb7c4b8, sunI: 0.18, hemi: 0x8fa092, hemiI: 0.3, ground: 0x243028, ang: 0.46 },
+  // Dawn: crushed vs noon, still bright enough that #2A6B68 water and the lip read.
+  { t: 0, sun: 0xc5d0c8, sunI: 0.42, hemi: 0xa8b8ac, hemiI: 0.48, ground: 0x2a382c, ang: 0.55 },
   // Noon may be bright; it is not the default screenshot light.
-  { t: 0.5, sun: 0xf8f4e8, sunI: 1.18, hemi: 0xd2ddd4, hemiI: 0.4, ground: 0x3a4538, ang: 1.18 },
-  // Dusk: #FFB060 is sun/highlight only.
-  { t: 0.85, sun: SUN_DUSK, sunI: 0.98, hemi: 0xc4a080, hemiI: 0.36, ground: 0x3a2c22, ang: 0.3 },
+  { t: 0.5, sun: 0xf8f4e8, sunI: 1.18, hemi: 0xd2ddd4, hemiI: 0.48, ground: 0x3a4538, ang: 1.18 },
+  // Dusk: #FFB060 is sun/highlight only — never copied onto a mesh.
+  { t: 0.85, sun: SUN_DUSK, sunI: 0.78, hemi: 0xc4a080, hemiI: 0.52, ground: 0x3a2c22, ang: 0.32 },
   { t: 1, sun: 0x6a7390, sunI: 0.05, hemi: 0x3a3c58, hemiI: 0.22, ground: 0x1a1820, ang: 0.08 },
 ];
 
 async function loadPng(url) {
   try {
     const tex = await new THREE.TextureLoader().loadAsync(url);
-    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.colorSpace = THREE.NoColorSpace;
     return tex;
   } catch (err) {
     console.error(`[art] failed to load required ${url}`, err);

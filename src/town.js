@@ -51,10 +51,10 @@ function offscreen(toward) {
 
 function perchY(species, x, z, grid, tide) {
   const waterY = tideToWaterY(tide);
-  if (species === 'duck') return waterY + 0.02;
+  if (species === 'duck') return waterY + 0.03;
   if (species === 'dragonfly') return terrainHeight(x, z) + 0.42 + hash2(x * 10, z * 10) * 0.12;
-  if (species === 'heron') return Math.max(0.02, waterY * 0.35);
-  if (species === 'sandpiper') return 0.03;
+  if (species === 'heron') return Math.max(0.06, waterY * 0.45);
+  if (species === 'sandpiper') return Math.max(0.055, waterY + 0.02);
   return terrainHeight(x, z) + 0.02;
 }
 
@@ -158,26 +158,23 @@ export class Wetland {
         const sdf = grid.sdf[id];
         const p = gridToWorld(i, j);
         if (!insideIsland(p.x, p.y)) continue;
-        const edge = sdf > -0.28 && sdf < 0.16;
-        const interior = type === TYPE.narrow && sdf < -0.04 && sdf > -0.55;
-        if (!edge && !interior) continue;
-        // Coarse field → distinct foliage islands, not a uniform toothpick hedge.
+        const edge = sdf > -0.2 && sdf < 0.14;
+        if (!edge) continue;
+        // Bank along the stroke — not a carpet filling the channel.
         const clump = hash2(Math.floor(i / 4), Math.floor(j / 4), 5);
-        const inClump = type === TYPE.narrow ? clump > 0.28 : type === TYPE.river ? clump > 0.42 : clump > 0.52;
+        const inClump = type === TYPE.narrow ? clump > 0.22 : type === TYPE.river ? clump > 0.4 : clump > 0.5;
         let keep;
         if (type === TYPE.narrow) {
-          // 湿草 / reed-dense: thick along the stroke, extra-dense in clumps.
-          keep = inClump ? 0.96 : 0.55;
-          if (interior) keep = Math.max(keep, 0.78);
+          keep = inClump ? 0.92 : 0.48;
         } else if (type === TYPE.river) {
-          keep = inClump ? 0.58 : 0.18;
+          keep = inClump ? 0.5 : 0.16;
         } else {
-          keep = inClump ? 0.3 : 0.08;
+          keep = inClump ? 0.22 : 0.06;
         }
         if (hash2(i, j, 3) > keep) continue;
         const density = densityFor(type);
         const slot = reedSlotName(density);
-        const extras = type === TYPE.narrow && inClump && hash2(i, j, 21) > 0.62 ? 1 : 0;
+        const extras = type === TYPE.narrow && inClump && hash2(i, j, 21) > 0.7 ? 1 : 0;
         for (let k = 0; k <= extras; k++) {
           if (next.length >= MAX_REEDS) break;
           const spread = k ? 0.22 : 0.1;

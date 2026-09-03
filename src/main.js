@@ -497,6 +497,7 @@ function playDemoStrokes() {
     applyMoodLook();
     wetland.tod = tod;
     wetland.rebuildFauna();
+    wetland.snapGrow();
     rebuildMirrors(mirrors, wetland, tide);
   }
 }

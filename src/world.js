@@ -575,6 +575,8 @@ async function tryTexture(url) {
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
+    const ct = res.headers.get('content-type') || '';
+    if (ct.includes('text/html')) return null;
     const blob = await res.blob();
     const obj = URL.createObjectURL(blob);
     const tex = await new THREE.TextureLoader().loadAsync(obj);

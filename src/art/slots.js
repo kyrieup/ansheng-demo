@@ -28,7 +28,12 @@ async function tryGltf(url) {
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
+    const ct = res.headers.get('content-type') || '';
+    if (ct.includes('text/html')) return null;
     const buf = await res.arrayBuffer();
+    if (buf.byteLength < 12) return null;
+    const magic = new TextDecoder().decode(new Uint8Array(buf.slice(0, 4)));
+    if (magic !== 'glTF') return null;
     return await new Promise((resolve, reject) => {
       loader.parse(
         buf,

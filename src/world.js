@@ -510,6 +510,9 @@ export function rebuildWater(group, grid, tide) {
   mat.opacity = THREE.MathUtils.lerp(0.18, 0.88, tide);
   mat.color.copy(COL_WATER_DRY).lerp(COL_WATER_WET, tide);
   if (tide > 0.97) mat.color.copy(COL_WATER_WET);
+  mat.fog = tide < 0.62;
+  mat.emissive.copy(COL_WATER_WET);
+  mat.emissiveIntensity = THREE.MathUtils.lerp(0, 0.16, tide);
   // Dry: almost no spec. High tide: tighter specular sheen (mirrors still fade with tide).
   mat.shininess = THREE.MathUtils.lerp(1, 96, tide);
   mat.specular.copy(COL_SPEC_DRY).lerp(COL_SPEC_WET, tide);
@@ -607,7 +610,7 @@ export function applyTimeOfDay(t, ctx) {
   // json dawn 0.062 eats the dish at this camera. Keep grey-green color, thinner mist.
   if (t < 0.35) {
     const mist = 1 - t / 0.35;
-    density = THREE.MathUtils.lerp(density, 0.026, mist * mist);
+    density = THREE.MathUtils.lerp(density, 0.02, mist * mist);
   }
   ctx.scene.fog.density = density;
 
@@ -624,8 +627,8 @@ export function applyTimeOfDay(t, ctx) {
     ctx.sun.target.position.set(0, 0.15, 0);
     ctx.sun.target.updateMatrixWorld();
   }
-  if (ctx.sun.shadow?.camera) {
-    ctx.sun.shadow.camera.updateProjectionMatrix();
+  if (ctx.renderer) {
+    ctx.renderer.toneMappingExposure = t < 0.3 ? 1.18 : 1.05;
   }
 }
 
@@ -633,7 +636,7 @@ const SKY_A = new THREE.Color();
 const SKY_B = new THREE.Color();
 const LIGHT_STOPS = [
   // Dawn: crushed vs noon, still bright enough that #2A6B68 water and the lip read.
-  { t: 0, sun: 0xc5d0c8, sunI: 0.58, hemi: 0xa8b8ac, hemiI: 0.58, ground: 0x2a382c, ang: 0.62 },
+  { t: 0, sun: 0xc5d0c8, sunI: 0.7, hemi: 0xb4c4b8, hemiI: 0.62, ground: 0x2a382c, ang: 0.7 },
   // Noon may be bright; it is not the default screenshot light.
   { t: 0.5, sun: 0xf8f4e8, sunI: 1.18, hemi: 0xd2ddd4, hemiI: 0.48, ground: 0x3a4538, ang: 1.18 },
   // Dusk: #FFB060 is sun/highlight only — never copied onto a mesh.

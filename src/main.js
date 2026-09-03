@@ -98,7 +98,7 @@ scene.add(preview);
 const wetland = new Wetland(scene, mats);
 const mirrors = createMirrors(scene);
 
-const ctx = { scene, mats, hemi, sun, water };
+const ctx = { scene, mats, hemi, sun, water, renderer };
 
 let width = 'narrow';
 let eraseMode = false;

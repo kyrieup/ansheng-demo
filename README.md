@@ -1,8 +1,8 @@
-# Ansheng / Before the City
+# 岸生
 
-Tiny Glade-style decompression toy. You only draw water; a Jiangnan canal town grows on the banks.
+Tiny Glade-style decompression toy. You only soak the ground; a wetland grows on the wet edge.
 
-> he only drew a river, the town grew itself.
+> he soaked a patch of ground, birds came by themselves.
 
 ## Run
 
@@ -16,36 +16,36 @@ Binds 0.0.0.0:5173.
 Open http://localhost:5173  (also http://127.0.0.1:5173)
 Desktop Chrome, mouse.
 
-- Left drag: draw water (erase if the 擦 button is on)
+- Left drag: soak the ground (erase if the 擦 button is on)
 - Right drag: orbit
 - Scroll: zoom
 - Ctrl/Cmd+Z: undo
 
 ## The three magics
 
-1. Release the pen, banks grow themselves in about 1s.
-   Bricks rise first, then windows pop, laundry and bollards, a small boat slides into the bend.
-   This is the prototype pass/fail.
+1. Release the pen, the ground darkens and reeds sprout from the wet edge in about 1s.
+   A stain, not a canal. Grow, not pop. This is the prototype pass/fail.
 
-2. Drag the water-level slider (枯潮 ebb to 满潮 flood). The town reskins.
-   One slider only. Ebb: mudflats, mud steps, boat hulls grounded.
-   Flood: water almost over the bricks, swallows one story, first floor becomes a gallery (廊下), lanterns drop into the water.
-   Same place, two faces.
+2. Drag the dry↔wet slider (干 to 满). The same marsh reskins.
+   One slider only. Dry: mudflat, waders. Full: mirror water.
+   Same patch, two faces.
 
-3. 黄昏 lights the windows; water carries reflections of the town.
+3. Birds fly in from offscreen and land on reed, mud, or water matching the soak kind.
+   Morning mist is good for birds. Erase the wetness and they leave.
 
-## Width character
+## Wetness kinds
 
-- 流巷 narrow: alley brick, looking-out windows, laundry lines across the ditch
-- 河 river: broader quay, dock steps, a boat slides into the bend
-- 港 harbor: stilt houses (吊脚楼), bollards, more boats, longer reflections
+- 湿草: reeds + dragonflies
+- 浅沼: mudflat + sandpipers / 鹜
+- 水面: ducks + reflections
 
-- Two channels crossing: plaza AND a bridge
-- Dead-end canal: still-water courtyard (not an error)
-- Disconnected stroke: pond; connected to existing water: river
+A disconnected short stroke is a seep or pool, not a well.
+More winding shoreline and more of the three kinds → more different species.
+Sparrows and ducks first; herons only after the shoreline is complex.
+No counts, no dex, no labels.
 
 ## Frozen v1
 
-Player only draws / edits / erases water, and sets width, tide, and time of day.
-No placing houses, no trees, no scores, no tutorial copy.
-World start: one bonsai island, a shallow central pond, no city.
+Player only draws / edits / erases wetness, and sets kind, dry↔wet, and time of day.
+No placing objects, no quests, no scores, no tutorial copy.
+World start: one bonsai grass island, a small shallow dip, no city, no birds.

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>岸生 / Before the City</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <div id="hud">
+      <div class="brand">岸生</div>
+      <div class="row">
+        <div class="seg" id="widths" role="group">
+          <button type="button" data-w="narrow" class="on">流巷</button>
+          <button type="button" data-w="river">河</button>
+          <button type="button" data-w="harbor">港</button>
+        </div>
+        <div class="seg">
+          <button type="button" id="erase">擦</button>
+          <button type="button" id="undo">撤销</button>
+          <button type="button" id="shot">截图</button>
+        </div>
+      </div>
+      <div class="sliders">
+        <label>
+          <span>枯潮</span>
+          <input id="tide" type="range" min="0" max="100" value="50" />
+          <span>满潮</span>
+        </label>
+        <label>
+          <span>昼</span>
+          <input id="tod" type="range" min="0" max="100" value="68" />
+          <span>黄昏</span>
+        </label>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

@@ -604,7 +604,13 @@ export function applyTimeOfDay(t, ctx) {
   const sky = SKY_A.clone().lerp(SKY_B, u);
   ctx.scene.background = sky;
   ctx.scene.fog.color.copy(sky);
-  ctx.scene.fog.density = a.density + (b.density - a.density) * u;
+  let density = a.density + (b.density - a.density) * u;
+  // Dawn: thicker grey-green mist than the json stop, still short of hiding the dish.
+  if (t < 0.35) {
+    const mist = 1 - t / 0.35;
+    density += 0.016 * mist * mist;
+  }
+  ctx.scene.fog.density = density;
 
   const lights = lerpStops(t, LIGHT_STOPS);
   ctx.hemi.color.set(lights.a.hemi).lerp(new THREE.Color(lights.b.hemi), lights.u);
@@ -628,7 +634,8 @@ const SKY_A = new THREE.Color();
 const SKY_B = new THREE.Color();
 const LIGHT_STOPS = [
   // Dawn: crush sun/hemi so grey-green fog reads. Not a bright noon.
-  { t: 0, sun: 0xc5d0c4, sunI: 0.26, hemi: 0x9aada0, hemiI: 0.36, ground: 0x243028, ang: 0.48 },
+  // Dawn: crush sun/hemi so grey-green fog reads. Not a bright noon.
+  { t: 0, sun: 0xb7c4b8, sunI: 0.18, hemi: 0x8fa092, hemiI: 0.3, ground: 0x243028, ang: 0.46 },
   // Noon may be bright; it is not the default screenshot light.
   { t: 0.5, sun: 0xf8f4e8, sunI: 1.18, hemi: 0xd2ddd4, hemiI: 0.4, ground: 0x3a4538, ang: 1.18 },
   // Dusk: #FFB060 is sun/highlight only.

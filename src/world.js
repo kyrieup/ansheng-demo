@@ -307,13 +307,16 @@ const TMP_G = new THREE.Color();
 const TMP_M = new THREE.Color();
 const TMP_C = new THREE.Color();
 
-function islandVertexColor(_x, _z, sdf, tide) {
+function islandVertexColor(x, z, sdf, tide) {
   const carve = smooth01(0.18, -0.05, sdf);
   // Low tide keeps dry palette; wet lerp only kicks in toward 满.
   const wet = THREE.MathUtils.smoothstep(0.2, 0.78, THREE.MathUtils.clamp(tide, 0, 1));
   TMP_G.copy(COL_GRASS_DRY).lerp(COL_GRASS_WET, wet);
   TMP_M.copy(COL_MUD_DRY).lerp(COL_MUD_WET, wet);
-  TMP_C.copy(TMP_G).lerp(TMP_M, carve);
+  // Dry tide: exposed disc reads as mud; dry grass stays on the outer rim. Wet carve unchanged.
+  const rimGrass = smooth01(5.55, 6.55, Math.hypot(x, z));
+  const dryMud = (1 - wet) * (1 - rimGrass);
+  TMP_C.copy(TMP_G).lerp(TMP_M, THREE.MathUtils.clamp(carve + dryMud * 0.84, 0, 1));
   return TMP_C;
 }
 

@@ -1,8 +1,9 @@
 :root {
-  --ink: #3a3830;
-  --paper: rgba(240, 234, 220, 0.48);
-  --line: rgba(70, 58, 40, 0.12);
-  --on: #4a5c40;
+  --ink: #243028;
+  --paper: rgba(243, 235, 221, 0.52);
+  --line: rgba(36, 48, 40, 0.12);
+  --on: #3d5a38;
+  --cream: #f7f0e6;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -40,7 +41,7 @@ html, body {
   font-family: "Songti SC", "Noto Serif SC", "STSong", serif;
   letter-spacing: 0.55em;
   font-size: 13px;
-  color: rgba(70, 58, 42, 0.42);
+  color: rgba(36, 48, 40, 0.42);
   text-indent: 0.55em;
   pointer-events: none;
   margin-bottom: 2px;
@@ -80,7 +81,7 @@ html, body {
 
 .seg button.on {
   background: var(--on);
-  color: #eef4dc;
+  color: var(--cream);
 }
 
 .seg button:hover:not(.on) { background: rgba(61, 90, 56, 0.1); }
@@ -122,7 +123,7 @@ input[type="range"]::-webkit-slider-thumb {
   border-radius: 50%;
   background: var(--on);
   cursor: pointer;
-  border: 2px solid #eef4dc;
+  border: 2px solid var(--cream);
 }
 
 body.shot #hud { display: none; }

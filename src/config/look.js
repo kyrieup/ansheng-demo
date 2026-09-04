@@ -1,4 +1,4 @@
-/** Locked look contract from 美术. Do not invent hexes. #FFB060 is dusk sun only — never a mesh. */
+/** Locked look contract from 美术 / Heal Filter v1. Do not invent hexes. #FFB060 is dusk sun only — never a mesh. */
 
 export const GRASS_DRY = 0x7a8b4e;
 export const GRASS_WET = 0x4e6a38;
@@ -9,11 +9,20 @@ export const DISH = 0x5c564c;
 export const DISH_BOTTOM = 0x3e2c20;
 export const DISH_LIP = 7.55;
 
-/** Dry-tide puddle: heal-filter silver, not charcoal or olive. */
-export const WATER_DRY = 0xc8d0c8;
+export const PUDDLE_SILVER = 0xc8d0c8;
+export const PUDDLE_WARM = 0xd4cfc4;
+export const WATER_SEEP = 0x6b8f6a;
+export const WATER_SILT = 0x7a9a8a;
+export const WATER_DRY = PUDDLE_SILVER;
 export const WATER_WET = 0x2a6b68;
+export const MIRROR_HL = 0x4a8a86;
 
 export const SUN_DUSK = 0xffb060;
+
+export const UI_INK = 0x243028;
+export const UI_PAPER = 0xf3ebdd;
+export const UI_ON = 0x3d5a38;
+export const UI_CREAM = 0xf7f0e6;
 
 /** New game / 重置. Existing localStorage `tod` is not overwritten on load. */
 export const DEFAULT_TOD = 0.85;
@@ -35,11 +44,12 @@ export const ART_PATHS = {
   skyFog: '/art/sky-fog.json',
 };
 
+/** Heal Filter v1 gauze. sky-fog.json may overwrite on load. Dish rim stays readable. */
 export const SKY_STOPS = [
-  { t: 0, color: 0xc5d4c8, density: 0.062, name: 'dawn' },
-  { t: 0.5, color: 0xb4c8bc, density: 0.03, name: 'day' },
-  { t: 0.85, color: 0xc4a080, density: 0.04, name: 'dusk' },
-  { t: 1, color: 0x1b1a24, density: 0.03, name: 'night' },
+  { t: 0, color: 0xd2ddd2, density: 0.045, name: 'dawn' },
+  { t: 0.5, color: 0xc5d4c4, density: 0.025, name: 'day' },
+  { t: 0.85, color: 0xe0b894, density: 0.032, name: 'dusk' },
+  { t: 1, color: 0x1b1a24, density: 0.028, name: 'night' },
 ];
 
 export function lerpStops(t, stops) {

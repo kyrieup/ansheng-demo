@@ -18,6 +18,10 @@ import {
   loadArtTextures,
   applyArtTextures,
 } from './world.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { Wetland } from './town.js';
 import { loadSlots, setMats, makeDish } from './art/slots.js';
 import { save as persistSave, load as loadSave, skipLoad } from './save/local.js';
@@ -140,7 +144,14 @@ let lastWaterMs = 0;
 const wetland = new Wetland(scene, mats);
 const mirrors = createMirrors(scene);
 
-const ctx = { scene, mats, hemi, sun, water, renderer };
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+// Almost-invisible halo on water highlights and dusk sun only.
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.05, 0.2, 0.91);
+composer.addPass(bloomPass);
+composer.addPass(new OutputPass());
+
+const ctx = { scene, mats, hemi, sun, water, renderer, bloomPass };
 
 let width = 'narrow';
 let eraseMode = false;
@@ -552,7 +563,7 @@ document.getElementById('tod').addEventListener('change', () => {
 
 document.getElementById('shot').addEventListener('click', () => {
   document.body.classList.add('shot');
-  renderer.render(scene, camera);
+  composer.render();
   requestAnimationFrame(() => {
     const a = document.createElement('a');
     a.download = 'ansheng.png';
@@ -566,6 +577,7 @@ window.addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
 });
 
 function applyMoodLook() {
@@ -644,7 +656,7 @@ function frame() {
   tickSink(dt);
   applyIslandSink(island, sink);
   syncMirrors(mirrors, wetland);
-  renderer.render(scene, camera);
+  composer.render();
   requestAnimationFrame(frame);
 }
 

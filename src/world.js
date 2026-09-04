@@ -116,11 +116,15 @@ export function makePalette() {
       roughness: 0.55,
     }),
     preview: new THREE.MeshBasicMaterial({
-      color: 0x8fcfc4,
+      color: 0x8aaa78,
       transparent: true,
-      opacity: 0.72,
-      depthWrite: true,
+      opacity: 0.42,
+      depthWrite: false,
       toneMapped: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -8,
+      polygonOffsetUnits: -8,
+      side: THREE.DoubleSide,
     }),
   };
 }
@@ -564,8 +568,8 @@ export function createWater(grid) {
     fog: false,
     side: THREE.DoubleSide,
     polygonOffset: true,
-    polygonOffsetFactor: -2,
-    polygonOffsetUnits: -2,
+    polygonOffsetFactor: -4,
+    polygonOffsetUnits: -4,
   });
   const mudMat = new THREE.MeshLambertMaterial({
     color: MUD_DRY,
@@ -611,8 +615,8 @@ export function rebuildWater(group, grid, tide) {
   mat.shininess = THREE.MathUtils.lerp(2, 72, wetAmt);
   mat.specular.copy(COL_PUDDLE_SILVER).lerp(COL_MIRROR_HL, wetAmt);
   mat.polygonOffset = true;
-  mat.polygonOffsetFactor = -2;
-  mat.polygonOffsetUnits = -2;
+  mat.polygonOffsetFactor = -4;
+  mat.polygonOffsetUnits = -4;
   if ('roughness' in mat) {
     mat.roughness = THREE.MathUtils.lerp(0.92, 0.08, wetAmt);
     mat.metalness = THREE.MathUtils.lerp(0, 0.12, wetAmt);
@@ -626,8 +630,8 @@ export function tideToLevel(_t) {
 }
 
 export function tideToWaterY(t) {
-  // Dry sheet sits above the carve floor (0.015) so the channel reads as shallow water, not a pit.
-  return THREE.MathUtils.lerp(0.1, 0.2, t);
+  // Dry sheet sits above the carve floor (0.015). Tiny lift avoids coplanar z-fight with island while dragging.
+  return THREE.MathUtils.lerp(0.1, 0.2, t) + 0.012;
 }
 
 export function smooth01(edge0, edge1, x) {

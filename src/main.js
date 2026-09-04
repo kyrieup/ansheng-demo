@@ -11,6 +11,7 @@ import {
   createWater,
   rebuildWater,
   insideIsland,
+  terrainHeight,
   simplify,
   polylineLength,
   findIntersections,
@@ -101,6 +102,7 @@ scene.add(water);
 
 const preview = new THREE.Mesh(new THREE.BufferGeometry(), mats.preview);
 preview.frustumCulled = false;
+preview.renderOrder = 12;
 scene.add(preview);
 
 function makeSoftDisc() {
@@ -225,11 +227,11 @@ function updatePreview() {
     preview.geometry = new THREE.BufferGeometry();
     return;
   }
-  const pts = strokePts.map((p) => new THREE.Vector3(p.x, 0.18, p.y));
+  const pts = strokePts.map((p) => new THREE.Vector3(p.x, terrainHeight(p.x, p.y) + 0.06, p.y));
   const half = (eraseMode ? 0.28 : WIDTHS[width] * 0.5) + 0.02;
   preview.geometry.dispose();
   preview.geometry = buildRibbon(pts, half);
-  mats.preview.color.set(eraseMode ? 0xc07060 : 0x8fcfc4);
+  mats.preview.color.set(eraseMode ? 0xc07060 : 0x8aaa78);
 }
 
 function tipRadius() {

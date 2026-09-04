@@ -9,7 +9,8 @@ export const DISH = 0x5c564c;
 export const DISH_BOTTOM = 0x3e2c20;
 export const DISH_LIP = 7.55;
 
-export const WATER_DRY = 0x6b8f6a;
+/** Dry-tide puddle: heal-filter silver, not charcoal or olive. */
+export const WATER_DRY = 0xc8d0c8;
 export const WATER_WET = 0x2a6b68;
 
 export const SUN_DUSK = 0xffb060;

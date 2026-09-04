@@ -268,6 +268,49 @@ export class WaterGrid {
     this.stampCenterPond();
   }
 
+  /** On release: pull the wet edge one more notch so the soak "sets". */
+  deepenWet(points, widthKey, sid) {
+    if (!points?.length) return;
+    const radius = WIDTHS[widthKey] * 0.56;
+    const type = TYPE[widthKey];
+    const notch = 0.05;
+    const pts = points.length === 1 ? [points[0], points[0]] : points;
+    for (let s = 0; s < pts.length - 1; s++) {
+      const ax = pts[s].x;
+      const az = pts[s].y;
+      const bx = pts[s + 1].x;
+      const bz = pts[s + 1].y;
+      const minx = Math.min(ax, bx) - radius - 0.16;
+      const maxx = Math.max(ax, bx) + radius + 0.16;
+      const minz = Math.min(az, bz) - radius - 0.16;
+      const maxz = Math.max(az, bz) + radius + 0.16;
+      const g0 = worldToGrid(minx, minz);
+      const g1 = worldToGrid(maxx, maxz);
+      const vx = bx - ax;
+      const vz = bz - az;
+      const len2 = vx * vx + vz * vz || 1e-6;
+      for (let j = Math.max(0, Math.floor(g0.j)); j <= Math.min(N - 1, Math.ceil(g1.j)); j++) {
+        for (let i = Math.max(0, Math.floor(g0.i)); i <= Math.min(N - 1, Math.ceil(g1.i)); i++) {
+          const p = gridToWorld(i, j);
+          if (!insideIsland(p.x, p.y)) continue;
+          let t = ((p.x - ax) * vx + (p.y - az) * vz) / len2;
+          t = THREE.MathUtils.clamp(t, 0, 1);
+          const dist = Math.hypot(p.x - (ax + vx * t), p.y - (az + vz * t));
+          const reach = radius + 0.12;
+          if (dist >= reach) continue;
+          const id = this.idx(i, j);
+          const fall = 1 - dist / reach;
+          const next = this.sdf[id] - notch * fall * fall;
+          if (next < this.sdf[id]) {
+            this.sdf[id] = next;
+            this.strokeId[id] = sid;
+          }
+          if (dist < radius + 0.04 && type > this.type[id]) this.type[id] = type;
+        }
+      }
+    }
+  }
+
   cloneState() {
     return {
       sdf: this.sdf.slice(),
@@ -301,8 +344,10 @@ const COL_GRASS_DRY = new THREE.Color(GRASS_DRY);
 const COL_GRASS_WET = new THREE.Color(GRASS_WET);
 const COL_MUD_DRY = new THREE.Color(MUD_DRY);
 const COL_MUD_WET = new THREE.Color(MUD_WET);
-const COL_SPEC_DRY = new THREE.Color(0x080908);
+const COL_SPEC_DRY = new THREE.Color(0xb8c4be);
 const COL_SPEC_WET = new THREE.Color(0x8ec4be);
+const COL_PUDDLE_GLOW = new THREE.Color(0xb8c4c0);
+const COZY_DUSK_FOG = new THREE.Color(0xe0b894);
 const TMP_G = new THREE.Color();
 const TMP_M = new THREE.Color();
 const TMP_C = new THREE.Color();
@@ -376,14 +421,21 @@ export function createIsland(grid, mats, tide = 0.52) {
   mesh.castShadow = false;
   mesh.userData.rings = rings;
   mesh.userData.segs = segs;
+  const pos = geo.attributes.position;
+  mesh.userData.baseY = new Float32Array(pos.count);
+  for (let i = 0; i < pos.count; i++) mesh.userData.baseY[i] = pos.getY(i);
   return mesh;
 }
 
-export function updateIsland(mesh, grid, tide = 0.52) {
+export function updateIsland(mesh, grid, tide = 0.52, opts = {}) {
   const pos = mesh.geometry.attributes.position;
   const col = mesh.geometry.attributes.color;
   const rings = mesh.userData.rings;
   const segs = mesh.userData.segs;
+  if (!mesh.userData.baseY || mesh.userData.baseY.length !== pos.count) {
+    mesh.userData.baseY = new Float32Array(pos.count);
+  }
+  const baseY = mesh.userData.baseY;
   let k = 0;
   for (let r = 0; r <= rings; r++) {
     for (let s = 0; s <= segs; s++) {
@@ -392,7 +444,9 @@ export function updateIsland(mesh, grid, tide = 0.52) {
       const sdf = grid.sample(x, z);
       const base = terrainHeight(x, z);
       const carve = smooth01(0.2, -0.08, sdf);
-      pos.setY(k, THREE.MathUtils.lerp(base, 0.015, carve));
+      const y = THREE.MathUtils.lerp(base, 0.015, carve);
+      baseY[k] = y;
+      pos.setY(k, y);
       islandVertexColor(x, z, sdf, tide);
       col.setXYZ(k, TMP_C.r, TMP_C.g, TMP_C.b);
       k++;
@@ -400,7 +454,28 @@ export function updateIsland(mesh, grid, tide = 0.52) {
   }
   pos.needsUpdate = true;
   col.needsUpdate = true;
-  mesh.geometry.computeVertexNormals();
+  if (opts.normals !== false) mesh.geometry.computeVertexNormals();
+}
+
+/** Soft spring dip: 2–4cm under the brush tip, from stored base Y. */
+export function applyIslandSink(mesh, sink) {
+  const pos = mesh.geometry.attributes.position;
+  const baseY = mesh.userData.baseY;
+  if (!baseY || !sink) return;
+  const R = Math.max(0.2, sink.radius || 0.7);
+  const amp = sink.amp || 0;
+  for (let k = 0; k < pos.count; k++) {
+    let y = baseY[k];
+    if (amp > 0.0004) {
+      const d = Math.hypot(pos.getX(k) - sink.x, pos.getZ(k) - sink.z);
+      if (d < R) {
+        const u = 1 - d / R;
+        y -= amp * u * u;
+      }
+    }
+    pos.setY(k, y);
+  }
+  pos.needsUpdate = true;
 }
 
 export function createDish(mats) {
@@ -510,14 +585,14 @@ export function rebuildWater(group, grid, tide) {
   group.userData.mudMesh.geometry = buildWetGeometry(grid, 0.22);
   group.userData.waterMesh.position.y = tideToWaterY(tide);
   const mat = group.userData.waterMat;
-  mat.opacity = THREE.MathUtils.lerp(0.18, 0.88, tide);
+  mat.opacity = THREE.MathUtils.lerp(0.34, 0.88, tide);
   mat.color.copy(COL_WATER_DRY).lerp(COL_WATER_WET, tide);
   if (tide > 0.97) mat.color.copy(COL_WATER_WET);
-  mat.fog = tide < 0.62;
-  mat.emissive.copy(COL_WATER_WET);
-  mat.emissiveIntensity = THREE.MathUtils.lerp(0, 0.16, tide);
-  // Dry: almost no spec. High tide: tighter specular sheen (mirrors still fade with tide).
-  mat.shininess = THREE.MathUtils.lerp(1, 96, tide);
+  // Dry puddles skip fog so they stay silver, not charcoal pits.
+  mat.fog = tide > 0.32 && tide < 0.7;
+  mat.emissive.copy(COL_PUDDLE_GLOW).lerp(COL_WATER_WET, tide);
+  mat.emissiveIntensity = THREE.MathUtils.lerp(0.055, 0.14, tide);
+  mat.shininess = THREE.MathUtils.lerp(22, 96, tide);
   mat.specular.copy(COL_SPEC_DRY).lerp(COL_SPEC_WET, tide);
   if ('roughness' in mat) {
     mat.roughness = THREE.MathUtils.lerp(0.96, 0.08, tide);
@@ -608,12 +683,17 @@ export function applyTimeOfDay(t, ctx) {
   SKY_B.set(b.color);
   const sky = SKY_A.clone().lerp(SKY_B, u);
   ctx.scene.background = sky;
+  // Cozy dusk: warm rice-apricot. Dawn stays grey-green (thinned below).
+  if (t > 0.52 && t < 0.98) {
+    const cozy = t <= 0.85 ? THREE.MathUtils.smoothstep(0.52, 0.85, t) : 1 - THREE.MathUtils.smoothstep(0.85, 0.98, t);
+    sky.lerp(COZY_DUSK_FOG, cozy * 0.7);
+  }
   ctx.scene.fog.color.copy(sky);
   let density = a.density + (b.density - a.density) * u;
   // json dawn 0.062 eats the dish at this camera. Keep grey-green color, thinner mist.
   if (t < 0.35) {
     const mist = 1 - t / 0.35;
-    density = THREE.MathUtils.lerp(density, 0.02, mist * mist);
+    density = THREE.MathUtils.lerp(density, 0.018, mist * mist);
   }
   ctx.scene.fog.density = density;
 
@@ -631,7 +711,7 @@ export function applyTimeOfDay(t, ctx) {
     ctx.sun.target.updateMatrixWorld();
   }
   if (ctx.renderer) {
-    ctx.renderer.toneMappingExposure = t < 0.3 ? 1.18 : 1.05;
+    ctx.renderer.toneMappingExposure = t < 0.3 ? 1.2 : t > 0.7 ? 1.16 : 1.1;
   }
 }
 
@@ -639,11 +719,11 @@ const SKY_A = new THREE.Color();
 const SKY_B = new THREE.Color();
 const LIGHT_STOPS = [
   // Dawn: crushed vs noon, still bright enough that #2A6B68 water and the lip read.
-  { t: 0, sun: 0xc5d0c8, sunI: 0.7, hemi: 0xb4c4b8, hemiI: 0.62, ground: 0x2a382c, ang: 0.7 },
+  { t: 0, sun: 0xc5d0c8, sunI: 0.74, hemi: 0xb8c8bc, hemiI: 0.68, ground: 0x364538, ang: 0.7 },
   // Noon may be bright; it is not the default screenshot light.
   { t: 0.5, sun: 0xf8f4e8, sunI: 1.18, hemi: 0xd2ddd4, hemiI: 0.48, ground: 0x3a4538, ang: 1.18 },
   // Dusk: #FFB060 is sun/highlight only — never copied onto a mesh.
-  { t: 0.85, sun: SUN_DUSK, sunI: 0.7, hemi: 0xd2c4b0, hemiI: 0.62, ground: 0x3a2c22, ang: 0.32 },
+  { t: 0.85, sun: SUN_DUSK, sunI: 0.86, hemi: 0xe6d4b8, hemiI: 0.8, ground: 0x5a4636, ang: 0.32 },
   { t: 1, sun: 0x6a7390, sunI: 0.05, hemi: 0x3a3c58, hemiI: 0.22, ground: 0x1a1820, ang: 0.08 },
 ];
 

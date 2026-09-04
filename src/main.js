@@ -7,6 +7,7 @@ import {
   WaterGrid,
   createIsland,
   updateIsland,
+  applyIslandSink,
   createWater,
   rebuildWater,
   insideIsland,
@@ -17,6 +18,10 @@ import {
   loadArtTextures,
   applyArtTextures,
 } from './world.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { Wetland } from './town.js';
 import { loadSlots, setMats, makeDish } from './art/slots.js';
 import { save as persistSave, load as loadSave, skipLoad } from './save/local.js';
@@ -68,7 +73,10 @@ sun.position.set(8, 8, 5);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 sun.shadow.bias = -0.0006;
-sun.shadow.normalBias = 0.04;
+sun.shadow.normalBias = 0.05;
+sun.shadow.radius = 4;
+sun.shadow.blurSamples = 16;
+if ('intensity' in sun.shadow) sun.shadow.intensity = 0.46;
 sun.shadow.camera.near = 1;
 sun.shadow.camera.far = 42;
 sun.shadow.camera.left = -11;
@@ -95,8 +103,52 @@ const preview = new THREE.Mesh(new THREE.BufferGeometry(), mats.preview);
 preview.frustumCulled = false;
 scene.add(preview);
 
+function makeSoftDisc() {
+  const c = document.createElement('canvas');
+  c.width = 64;
+  c.height = 64;
+  const g = c.getContext('2d');
+  const grd = g.createRadialGradient(32, 32, 3, 32, 32, 30);
+  grd.addColorStop(0, 'rgba(255,255,255,0.72)');
+  grd.addColorStop(0.45, 'rgba(255,255,255,0.28)');
+  grd.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grd;
+  g.fillRect(0, 0, 64, 64);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+const tip = new THREE.Mesh(
+  new THREE.CircleGeometry(1, 40),
+  new THREE.MeshBasicMaterial({
+    map: makeSoftDisc(),
+    color: 0x6e7a44,
+    transparent: true,
+    opacity: 0.34,
+    depthWrite: false,
+    toneMapped: false,
+    side: THREE.DoubleSide,
+  }),
+);
+tip.rotation.x = -Math.PI / 2;
+tip.visible = false;
+tip.renderOrder = 5;
+tip.frustumCulled = false;
+scene.add(tip);
+
+const sink = { x: 0, z: 0, amp: 0, vel: 0, target: 0, radius: 0.7 };
+let soakLive = false;
+let lastWaterMs = 0;
+
 const wetland = new Wetland(scene, mats);
 const mirrors = createMirrors(scene);
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.09, 0.28, 0.88);
+composer.addPass(bloomPass);
+composer.addPass(new OutputPass());
 
 const ctx = { scene, mats, hemi, sun, water, renderer };
 
@@ -179,6 +231,66 @@ function updatePreview() {
   mats.preview.color.set(eraseMode ? 0xc07060 : 0x8fcfc4);
 }
 
+function tipRadius() {
+  return eraseMode ? 0.3 : WIDTHS[width] * 0.52;
+}
+
+function placeTip(p) {
+  if (!p) {
+    tip.visible = false;
+    return;
+  }
+  tip.position.set(p.x, p.y + 0.035, p.z);
+  const r = tipRadius();
+  tip.scale.setScalar(r);
+  tip.material.color.set(eraseMode ? 0xc45a48 : 0x6e7a44);
+  tip.material.opacity = eraseMode ? 0.3 : 0.34;
+  tip.visible = true;
+  sink.x = p.x;
+  sink.z = p.z;
+  sink.radius = r * 1.4;
+}
+
+function liveSoak(forceWater = false) {
+  grid.syncTexture();
+  updateIsland(island, grid, tide, { normals: false });
+  applyIslandSink(island, sink);
+  const now = performance.now();
+  if (forceWater || now - lastWaterMs > 90) {
+    rebuildWater(water, grid, tide);
+    lastWaterMs = now;
+  }
+}
+
+function liveStampPoint(x, z) {
+  if (eraseMode) {
+    grid.eraseStroke([new THREE.Vector2(x, z)], WIDTHS[width] * 0.65);
+  } else {
+    grid.stampCircle(x, z, WIDTHS[width] * 0.5, TYPE[width], nextId);
+  }
+}
+
+function liveStampSeg(a, b) {
+  if (eraseMode) {
+    grid.eraseStroke([a, b], WIDTHS[width] * 0.65);
+  } else {
+    grid.stampCapsule(a.x, a.y, b.x, b.y, WIDTHS[width] * 0.5, TYPE[width], nextId);
+  }
+}
+
+function tickSink(dt) {
+  const k = 26;
+  const damp = 8.5;
+  const acc = (sink.target - sink.amp) * k - sink.vel * damp;
+  sink.vel += acc * dt;
+  sink.amp += sink.vel * dt;
+  if (sink.amp < 0) {
+    sink.amp = 0;
+    sink.vel = 0;
+  }
+  if (sink.amp > 0.04) sink.amp = 0.04;
+}
+
 function snapshot() {
   history.push({
     grid: grid.cloneState(),
@@ -226,19 +338,24 @@ function rebuildGridFromStrokes() {
   }
 }
 
-function commitStroke() {
+function commitStroke({ live = false } = {}) {
   const pts = simplify(strokePts, 0.07);
   strokePts = [];
   updatePreview();
-  if (pts.length < 1) return;
+  placeTip(null);
+  audio.strokeStop();
+  sink.target = 0;
+  if (pts.length < 1) {
+    soakLive = false;
+    return;
+  }
   const L = polylineLength(pts);
   if (L < 0.18 && pts.length < 3) {
     const p = pts[0];
     pts.push(new THREE.Vector2(p.x + 0.05, p.y));
   }
 
-  snapshot();
-  audio.stroke();
+  if (!live) snapshot();
 
   if (eraseMode) {
     strokes = strokes
@@ -265,7 +382,9 @@ function commitStroke() {
       const a = (i / 10) * Math.PI * 2;
       pondPts.push(new THREE.Vector2(c.x + Math.cos(a) * 0.35, c.y + Math.sin(a) * 0.35));
     }
-    strokes.push({ id: nextId++, width, points: pondPts, connected: false });
+    const pondId = nextId++;
+    strokes.push({ id: pondId, width, points: pondPts, connected: false });
+    if (live) grid.deepenWet(pondPts, width, pondId);
     finishRebuild(pts);
     return;
   }
@@ -277,12 +396,15 @@ function commitStroke() {
     grid.stampCircle(start.x, start.y, WIDTHS[width] * 0.85, TYPE[width], id);
   }
   strokes.push({ id, width, points: pts, connected });
+  if (live) grid.deepenWet(pts, width, id);
   finishRebuild(pts);
 }
 
 function finishRebuild(growPath) {
+  soakLive = false;
   grid.syncTexture();
   updateIsland(island, grid, tide);
+  applyIslandSink(island, sink);
   rebuildWater(water, grid, tide);
   const lm = landmarksFrom(strokes);
   wetland.tod = tod;
@@ -300,6 +422,7 @@ function undo() {
   nextId = snap.nextId;
   grid.syncTexture();
   updateIsland(island, grid, tide);
+  applyIslandSink(island, sink);
   rebuildWater(water, grid, tide);
   wetland.tod = tod;
   wetland.rebuild(grid, strokes, landmarksFrom(strokes), null);
@@ -349,7 +472,14 @@ canvas.addEventListener('pointerdown', (e) => {
   const p = hitIsland(e);
   if (!p || !insideIsland(p.x, p.z)) return;
   drawing = true;
+  soakLive = true;
+  snapshot();
   strokePts = [new THREE.Vector2(p.x, p.z)];
+  sink.target = 0.032;
+  placeTip(p);
+  liveStampPoint(p.x, p.z);
+  liveSoak(true);
+  audio.strokeStart();
   canvas.setPointerCapture(e.pointerId);
 });
 
@@ -357,11 +487,18 @@ canvas.addEventListener('pointermove', (e) => {
   if (!drawing) return;
   const p = hitIsland(e);
   if (!p || !insideIsland(p.x, p.z)) return;
+  placeTip(p);
+  sink.target = 0.032;
   const last = strokePts[strokePts.length - 1];
   const q = new THREE.Vector2(p.x, p.z);
-  if (last.distanceTo(q) < 0.05) return;
+  if (last.distanceTo(q) < 0.05) {
+    applyIslandSink(island, sink);
+    return;
+  }
   strokePts.push(q);
+  liveStampSeg(last, q);
   updatePreview();
+  liveSoak();
 });
 
 function endDraw(e) {
@@ -370,7 +507,7 @@ function endDraw(e) {
   try {
     canvas.releasePointerCapture(e.pointerId);
   } catch (_) {}
-  commitStroke();
+  commitStroke({ live: true });
 }
 
 canvas.addEventListener('pointerup', endDraw);
@@ -403,6 +540,7 @@ document.getElementById('tide').addEventListener('input', (e) => {
   tide = Number(e.target.value) / 100;
   rebuildWater(water, grid, tide);
   updateIsland(island, grid, tide);
+  applyIslandSink(island, sink);
   wetland.applyTide(tide);
   applyTideMirrors(mirrors, tide);
   audio.tideChange();
@@ -424,7 +562,7 @@ document.getElementById('tod').addEventListener('change', () => {
 
 document.getElementById('shot').addEventListener('click', () => {
   document.body.classList.add('shot');
-  renderer.render(scene, camera);
+  composer.render();
   requestAnimationFrame(() => {
     const a = document.createElement('a');
     a.download = 'ansheng.png';
@@ -438,6 +576,7 @@ window.addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
 });
 
 function applyMoodLook() {
@@ -452,6 +591,7 @@ function applyMoodLook() {
   applyTimeOfDay(tod, ctx);
   rebuildWater(water, grid, tide);
   updateIsland(island, grid, tide);
+  applyIslandSink(island, sink);
   wetland.applyTide(tide);
   applyTideMirrors(mirrors, tide);
   return true;
@@ -512,8 +652,10 @@ function frame() {
   const dt = Math.min(0.05, clock.getDelta());
   controls.update();
   wetland.tick(dt);
+  tickSink(dt);
+  applyIslandSink(island, sink);
   syncMirrors(mirrors, wetland);
-  renderer.render(scene, camera);
+  composer.render();
   requestAnimationFrame(frame);
 }
 

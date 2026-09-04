@@ -362,6 +362,11 @@ function islandVertexColor(x, z, sdf, tide) {
   const rimGrass = smooth01(5.55, 6.55, Math.hypot(x, z));
   const dryMud = (1 - wet) * (1 - rimGrass);
   TMP_C.copy(TMP_G).lerp(TMP_M, THREE.MathUtils.clamp(carve + dryMud * 0.84, 0, 1));
+  // Dry-tide channels read as shallow silver puddles, not charcoal pits.
+  if (wet < 0.35 && carve > 0.35) {
+    const puddle = (1 - wet / 0.35) * smooth01(0.35, 0.92, carve) * 0.7;
+    TMP_C.lerp(COL_WATER_DRY, puddle);
+  }
   return TMP_C;
 }
 
@@ -585,21 +590,21 @@ export function rebuildWater(group, grid, tide) {
   group.userData.mudMesh.geometry = buildWetGeometry(grid, 0.22);
   group.userData.waterMesh.position.y = tideToWaterY(tide);
   const mat = group.userData.waterMat;
-  mat.opacity = THREE.MathUtils.lerp(0.34, 0.88, tide);
+  mat.opacity = THREE.MathUtils.lerp(0.74, 0.88, tide);
   mat.color.copy(COL_WATER_DRY).lerp(COL_WATER_WET, tide);
   if (tide > 0.97) mat.color.copy(COL_WATER_WET);
   // Dry puddles skip fog so they stay silver, not charcoal pits.
   mat.fog = tide > 0.32 && tide < 0.7;
   mat.emissive.copy(COL_PUDDLE_GLOW).lerp(COL_WATER_WET, tide);
-  mat.emissiveIntensity = THREE.MathUtils.lerp(0.055, 0.14, tide);
-  mat.shininess = THREE.MathUtils.lerp(22, 96, tide);
+  mat.emissiveIntensity = THREE.MathUtils.lerp(0.28, 0.12, tide);
+  mat.shininess = THREE.MathUtils.lerp(48, 96, tide);
   mat.specular.copy(COL_SPEC_DRY).lerp(COL_SPEC_WET, tide);
   if ('roughness' in mat) {
     mat.roughness = THREE.MathUtils.lerp(0.96, 0.08, tide);
     mat.metalness = THREE.MathUtils.lerp(0, 0.12, tide);
   }
   group.userData.mudMat.color.copy(COL_MUD_DRY).lerp(COL_MUD_WET, tide);
-  group.userData.mudMesh.visible = tide < 0.84;
+  group.userData.mudMesh.visible = tide >= 0.2 && tide < 0.84;
 }
 
 export function tideToLevel(_t) {
@@ -607,7 +612,7 @@ export function tideToLevel(_t) {
 }
 
 export function tideToWaterY(t) {
-  return THREE.MathUtils.lerp(0.045, 0.2, t);
+  return THREE.MathUtils.lerp(0.055, 0.2, t);
 }
 
 export function smooth01(edge0, edge1, x) {
@@ -723,7 +728,7 @@ const LIGHT_STOPS = [
   // Noon may be bright; it is not the default screenshot light.
   { t: 0.5, sun: 0xf8f4e8, sunI: 1.18, hemi: 0xd2ddd4, hemiI: 0.48, ground: 0x3a4538, ang: 1.18 },
   // Dusk: #FFB060 is sun/highlight only — never copied onto a mesh.
-  { t: 0.85, sun: SUN_DUSK, sunI: 0.86, hemi: 0xe6d4b8, hemiI: 0.8, ground: 0x5a4636, ang: 0.32 },
+  { t: 0.85, sun: SUN_DUSK, sunI: 0.82, hemi: 0xead9c0, hemiI: 0.95, ground: 0x6e5a48, ang: 0.32 },
   { t: 1, sun: 0x6a7390, sunI: 0.05, hemi: 0x3a3c58, hemiI: 0.22, ground: 0x1a1820, ang: 0.08 },
 ];
 

@@ -18,10 +18,6 @@ import {
   loadArtTextures,
   applyArtTextures,
 } from './world.js';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { Wetland } from './town.js';
 import { loadSlots, setMats, makeDish } from './art/slots.js';
 import { save as persistSave, load as loadSave, skipLoad } from './save/local.js';
@@ -76,7 +72,7 @@ sun.shadow.bias = -0.0006;
 sun.shadow.normalBias = 0.05;
 sun.shadow.radius = 4;
 sun.shadow.blurSamples = 16;
-if ('intensity' in sun.shadow) sun.shadow.intensity = 0.46;
+if ('intensity' in sun.shadow) sun.shadow.intensity = 0.32;
 sun.shadow.camera.near = 1;
 sun.shadow.camera.far = 42;
 sun.shadow.camera.left = -11;
@@ -143,12 +139,6 @@ let lastWaterMs = 0;
 
 const wetland = new Wetland(scene, mats);
 const mirrors = createMirrors(scene);
-
-const composer = new EffectComposer(renderer);
-composer.addPass(new RenderPass(scene, camera));
-const bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.09, 0.28, 0.88);
-composer.addPass(bloomPass);
-composer.addPass(new OutputPass());
 
 const ctx = { scene, mats, hemi, sun, water, renderer };
 
@@ -562,7 +552,7 @@ document.getElementById('tod').addEventListener('change', () => {
 
 document.getElementById('shot').addEventListener('click', () => {
   document.body.classList.add('shot');
-  composer.render();
+  renderer.render(scene, camera);
   requestAnimationFrame(() => {
     const a = document.createElement('a');
     a.download = 'ansheng.png';
@@ -576,7 +566,6 @@ window.addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
-  composer.setSize(innerWidth, innerHeight);
 });
 
 function applyMoodLook() {
@@ -655,7 +644,7 @@ function frame() {
   tickSink(dt);
   applyIslandSink(island, sink);
   syncMirrors(mirrors, wetland);
-  composer.render();
+  renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
 

@@ -59,12 +59,18 @@ function prepareArtRoot(root, role) {
       const n = (obj.name || '').toLowerCase();
       obj.receiveShadow = true;
       obj.castShadow = n === 'lip' || n.includes('lip');
+      eachMaterial(obj, (mat) => {
+        mat.fog = false;
+      });
       return;
     }
     if (role === 'dragonfly') {
       // Translucent wings must receive light, stay small, and must not shadow as a black cross.
       obj.castShadow = false;
       obj.receiveShadow = !isWingNode(obj);
+      eachMaterial(obj, (mat) => {
+        mat.fog = false;
+      });
       if (isWingNode(obj)) {
         eachMaterial(obj, (mat) => {
           mat.transparent = true;
@@ -79,17 +85,29 @@ function prepareArtRoot(root, role) {
     if (role === 'reed') {
       obj.castShadow = true;
       obj.receiveShadow = true;
+      eachMaterial(obj, (mat) => {
+        mat.fog = false;
+      });
       const n = (obj.name || '').toLowerCase();
-      if (n.includes('head')) {
+      if (n.includes('head') || n.includes('seed') || n.includes('flower') || n.includes('spike')) {
         obj.material = new THREE.MeshLambertMaterial({
           color: 0xa07848,
           toneMapped: true,
+          fog: false,
         });
       }
       return;
     }
     obj.castShadow = true;
     obj.receiveShadow = true;
+    eachMaterial(obj, (mat) => {
+      mat.fog = false;
+      if (root.userData.species === 'duck') {
+        if (!mat.emissive) return;
+        mat.emissive.setHex(0x3a3228);
+        mat.emissiveIntensity = 0.22;
+      }
+    });
   });
 }
 

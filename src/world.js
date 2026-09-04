@@ -607,7 +607,7 @@ export function rebuildWater(group, grid, tide) {
   mat.fog = false;
   mat.emissive.copy(COL_PUDDLE_SILVER).lerp(COL_PUDDLE_WARM, 0.36);
   mat.emissive.lerp(COL_MIRROR_HL, wetAmt);
-  mat.emissiveIntensity = THREE.MathUtils.lerp(0.68, 0.16, wetAmt);
+  mat.emissiveIntensity = THREE.MathUtils.lerp(0.68, 0.4, wetAmt);
   mat.shininess = THREE.MathUtils.lerp(2, 72, wetAmt);
   mat.specular.copy(COL_PUDDLE_SILVER).lerp(COL_MIRROR_HL, wetAmt);
   mat.polygonOffset = true;
@@ -720,7 +720,7 @@ export function applyTimeOfDay(t, ctx) {
     ctx.sun.target.updateMatrixWorld();
   }
   if (ctx.renderer) {
-    ctx.renderer.toneMappingExposure = t < 0.22 ? 1.0 : t > 0.7 ? 1.12 : 1.06;
+    ctx.renderer.toneMappingExposure = t < 0.22 ? 1.02 : t > 0.7 ? 1.12 : 1.06;
   }
   if (ctx.bloomPass) {
     const dusk = smooth01(0.62, 0.88, t);
@@ -735,7 +735,7 @@ const SKY_A = new THREE.Color();
 const SKY_B = new THREE.Color();
 const LIGHT_STOPS = [
   // Dawn: keep #2A6B68 and reed-head #A07848; do not fill meshes with fog-white.
-  { t: 0, sun: 0xc5d0c8, sunI: 0.7, hemi: 0x96a698, hemiI: 0.46, ground: 0x3a4a3c, ang: 0.7 },
+  { t: 0, sun: 0xc5d0c8, sunI: 0.78, hemi: 0x9aaa9c, hemiI: 0.58, ground: 0x3a4a3c, ang: 0.7 },
   // Noon may be bright; it is not the default screenshot light.
   { t: 0.5, sun: 0xf8f4e8, sunI: 1.18, hemi: 0xd2ddd4, hemiI: 0.48, ground: 0x3a4538, ang: 1.18 },
   // Dusk: #FFB060 is sun/highlight only — never copied onto a mesh.

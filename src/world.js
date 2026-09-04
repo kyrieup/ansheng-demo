@@ -719,6 +719,9 @@ export function applyTimeOfDay(t, ctx) {
     ctx.sun.target.position.set(0, 0.15, 0);
     ctx.sun.target.updateMatrixWorld();
   }
+  if ('intensity' in ctx.sun.shadow) {
+    ctx.sun.shadow.intensity = t < 0.25 ? 0.1 : 0.32;
+  }
   if (ctx.renderer) {
     ctx.renderer.toneMappingExposure = t < 0.22 ? 1.02 : t > 0.7 ? 1.12 : 1.06;
   }

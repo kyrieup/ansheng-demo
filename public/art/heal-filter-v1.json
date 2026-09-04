@@ -1,0 +1,43 @@
+{
+  "name": "heal-filter-v1",
+  "locks": {
+    "mud_dry": "#8A6E4C",
+    "mirror": "#2A6B68",
+    "reed_head": "#A07848",
+    "bill": "#8A8478",
+    "sun_dusk_light_only": "#FFB060",
+    "dish": "#5C564C"
+  },
+  "heal": {
+    "puddle_silver": "#C8D0C8",
+    "puddle_warm": "#D4CFC4",
+    "dawn": {
+      "color": "#D2DDD2",
+      "density": 0.045
+    },
+    "day": {
+      "color": "#C5D4C4",
+      "density": 0.025
+    },
+    "dusk": {
+      "color": "#E0B894",
+      "density": 0.032
+    },
+    "night": {
+      "color": "#1B1A24",
+      "density": 0.028
+    },
+    "mirror_highlight": "#4A8A86",
+    "note": "Fog is gauze not white wall. Dish rim always readable. Dry puddles use silver/warm grey, never charcoal."
+  },
+  "multiply": {
+    "terrain": "near-white warmer mud grain, luma ~0.945-1, do not replace vertex soak",
+    "water": "near-white soft rings, luma ~0.96-1, keep tide color lerp to #2A6B68"
+  },
+  "paths": {
+    "palette": "/workspace/ansheng-art/heal-filter-v1.png",
+    "terrain": "/workspace/ansheng-art/gltf/terrain.png",
+    "water": "/workspace/ansheng-art/gltf/water.png",
+    "public_art": "/workspace/ansheng-demo/public/art"
+  }
+}

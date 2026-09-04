@@ -1,0 +1,6 @@
+{
+  "dawn": { "color": "#D2DDD2", "density": 0.045 },
+  "day": { "color": "#C5D4C4", "density": 0.025 },
+  "dusk": { "color": "#E0B894", "density": 0.032 },
+  "night": { "color": "#1B1A24", "density": 0.028 }
+}

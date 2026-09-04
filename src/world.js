@@ -348,8 +348,6 @@ const COL_MUD_WET = new THREE.Color(MUD_WET);
 const COL_PUDDLE_SILVER = new THREE.Color(PUDDLE_SILVER);
 const COL_PUDDLE_WARM = new THREE.Color(PUDDLE_WARM);
 const COL_MIRROR_HL = new THREE.Color(MIRROR_HL);
-const COL_SPEC_DRY = new THREE.Color(PUDDLE_SILVER);
-const COL_SPEC_WET = new THREE.Color(MIRROR_HL);
 const TMP_G = new THREE.Color();
 const TMP_M = new THREE.Color();
 const TMP_C = new THREE.Color();
@@ -366,8 +364,8 @@ function islandVertexColor(x, z, sdf, tide) {
   const dryMud = (1 - wet) * (1 - rimGrass);
   TMP_C.copy(TMP_G).lerp(TMP_M, THREE.MathUtils.clamp(carve + dryMud * 0.84, 0, 1));
   // Dry-tide channels: silver / warm grey puddles, never charcoal or teal.
-  if (wet < 0.38 && carve > 0.28) {
-    const puddle = (1 - wet / 0.38) * smooth01(0.28, 0.88, carve) * 0.88;
+  if (wet < 0.38 && carve > 0.2) {
+    const puddle = (1 - wet / 0.38) * smooth01(0.2, 0.7, carve);
     TMP_P.copy(COL_PUDDLE_SILVER).lerp(COL_PUDDLE_WARM, 0.48);
     TMP_C.lerp(TMP_P, puddle);
   }
@@ -558,13 +556,16 @@ export function createWater(grid) {
   const waterMat = new THREE.MeshPhongMaterial({
     color: PUDDLE_SILVER,
     transparent: true,
-    opacity: 0.82,
-    shininess: 28,
+    opacity: 0.94,
+    shininess: 2,
     specular: PUDDLE_SILVER,
     depthWrite: true,
     toneMapped: true,
     fog: false,
     side: THREE.DoubleSide,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
   });
   const mudMat = new THREE.MeshLambertMaterial({
     color: MUD_DRY,
@@ -589,24 +590,29 @@ export function createWater(grid) {
 }
 
 export function rebuildWater(group, grid, tide) {
+  const wetAmt = THREE.MathUtils.smoothstep(0.42, 0.92, THREE.MathUtils.clamp(tide, 0, 1));
+  // Dry tide paints a silver sheet over the whole channel so carved walls cannot read as charcoal pits.
+  const cover = THREE.MathUtils.lerp(0.3, 0.1, wetAmt);
   group.userData.waterMesh.geometry.dispose();
-  group.userData.waterMesh.geometry = buildWetGeometry(grid, 0.1);
+  group.userData.waterMesh.geometry = buildWetGeometry(grid, cover);
   group.userData.mudMesh.geometry.dispose();
   group.userData.mudMesh.geometry = buildWetGeometry(grid, 0.22);
   group.userData.waterMesh.position.y = tideToWaterY(tide);
   const mat = group.userData.waterMat;
-  const wetAmt = THREE.MathUtils.smoothstep(0.42, 0.92, THREE.MathUtils.clamp(tide, 0, 1));
-  mat.opacity = THREE.MathUtils.lerp(0.82, 0.88, wetAmt);
+  mat.opacity = THREE.MathUtils.lerp(0.94, 0.88, wetAmt);
   // Dry: silver / warm grey only. #2A6B68 must not dominate until 满.
   mat.color.copy(COL_PUDDLE_SILVER).lerp(COL_PUDDLE_WARM, 0.46);
   mat.color.lerp(COL_WATER_WET, wetAmt);
   if (tide > 0.97) mat.color.copy(COL_WATER_WET);
   mat.fog = false;
-  mat.emissive.copy(COL_PUDDLE_SILVER).lerp(COL_PUDDLE_WARM, 0.4);
+  mat.emissive.copy(COL_PUDDLE_SILVER).lerp(COL_PUDDLE_WARM, 0.36);
   mat.emissive.lerp(COL_MIRROR_HL, wetAmt);
-  mat.emissiveIntensity = THREE.MathUtils.lerp(0.46, 0.08, wetAmt);
-  mat.shininess = THREE.MathUtils.lerp(28, 88, wetAmt);
+  mat.emissiveIntensity = THREE.MathUtils.lerp(0.84, 0.1, wetAmt);
+  mat.shininess = THREE.MathUtils.lerp(2, 72, wetAmt);
   mat.specular.copy(COL_PUDDLE_SILVER).lerp(COL_MIRROR_HL, wetAmt);
+  mat.polygonOffset = true;
+  mat.polygonOffsetFactor = -2;
+  mat.polygonOffsetUnits = -2;
   if ('roughness' in mat) {
     mat.roughness = THREE.MathUtils.lerp(0.92, 0.08, wetAmt);
     mat.metalness = THREE.MathUtils.lerp(0, 0.12, wetAmt);
@@ -620,7 +626,8 @@ export function tideToLevel(_t) {
 }
 
 export function tideToWaterY(t) {
-  return THREE.MathUtils.lerp(0.055, 0.2, t);
+  // Dry sheet sits above the carve floor (0.015) so the channel reads as shallow water, not a pit.
+  return THREE.MathUtils.lerp(0.1, 0.2, t);
 }
 
 export function smooth01(edge0, edge1, x) {
@@ -713,21 +720,22 @@ export function applyTimeOfDay(t, ctx) {
     ctx.sun.target.updateMatrixWorld();
   }
   if (ctx.renderer) {
-    ctx.renderer.toneMappingExposure = t < 0.3 ? 1.04 : t > 0.7 ? 1.12 : 1.08;
+    ctx.renderer.toneMappingExposure = t < 0.22 ? 0.86 : t > 0.7 ? 1.12 : 1.06;
   }
   if (ctx.bloomPass) {
     const dusk = THREE.MathUtils.smoothstep(0.62, 0.88, t);
     ctx.bloomPass.enabled = dusk > 0.02;
     ctx.bloomPass.strength = 0.04 * dusk;
     ctx.bloomPass.threshold = 0.94;
+    ctx.bloomPass.radius = dusk > 0.02 ? 0.2 : 0;
   }
 }
 
 const SKY_A = new THREE.Color();
 const SKY_B = new THREE.Color();
 const LIGHT_STOPS = [
-  // Dawn: crushed vs noon, still bright enough that #2A6B68 water and the lip read.
-  { t: 0, sun: 0xc5d0c8, sunI: 0.72, hemi: 0xb0c0b4, hemiI: 0.52, ground: 0x3a4a3c, ang: 0.7 },
+  // Dawn: keep #2A6B68 and reed-head #A07848; do not fill meshes with fog-white.
+  { t: 0, sun: 0xa8b4ac, sunI: 0.4, hemi: 0x6e8074, hemiI: 0.26, ground: 0x2a382c, ang: 0.62 },
   // Noon may be bright; it is not the default screenshot light.
   { t: 0.5, sun: 0xf8f4e8, sunI: 1.18, hemi: 0xd2ddd4, hemiI: 0.48, ground: 0x3a4538, ang: 1.18 },
   // Dusk: #FFB060 is sun/highlight only — never copied onto a mesh.

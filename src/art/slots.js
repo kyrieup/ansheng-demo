@@ -90,22 +90,25 @@ function prepareArtRoot(root, role) {
       });
       const n = (obj.name || '').toLowerCase();
       if (n.includes('head') || n.includes('seed') || n.includes('flower') || n.includes('spike')) {
-        obj.material = new THREE.MeshLambertMaterial({
+        // Unlit head so dawn fill cannot bleach #A07848 into white toothpicks.
+        obj.material = new THREE.MeshBasicMaterial({
           color: 0xa07848,
-          toneMapped: true,
+          toneMapped: false,
           fog: false,
         });
       }
       return;
     }
+    const isDuck = root.userData.species === 'duck';
     obj.castShadow = true;
-    obj.receiveShadow = true;
+    obj.receiveShadow = !isDuck;
     eachMaterial(obj, (mat) => {
       mat.fog = false;
-      if (root.userData.species === 'duck') {
-        if (!mat.emissive) return;
-        mat.emissive.setHex(0x3a3228);
-        mat.emissiveIntensity = 0.22;
+      if (!isDuck) return;
+      mat.toneMapped = false;
+      if (mat.emissive) {
+        mat.emissive.setHex(0x6a5840);
+        mat.emissiveIntensity = 0.48;
       }
     });
   });

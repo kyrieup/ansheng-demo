@@ -90,7 +90,7 @@ export function applyTideMirrors(m, tide) {
   m.group.visible = tide >= 0.46;
   m.group.scale.y = -1;
   m.group.position.y = 2 * wy;
-  const fade = THREE.MathUtils.smoothstep(0.46, 0.72, tide);
+  const fade = THREE.MathUtils.smoothstep(tide, 0.46, 0.72);
   const op = MIRROR_OPACITY * fade;
   for (const mat of m.mats) mat.opacity = op;
 }

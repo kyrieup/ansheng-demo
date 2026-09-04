@@ -356,7 +356,7 @@ const TMP_P = new THREE.Color();
 function islandVertexColor(x, z, sdf, tide) {
   const carve = smooth01(0.18, -0.05, sdf);
   // Low tide keeps dry palette; wet lerp only kicks in toward 满.
-  const wet = THREE.MathUtils.smoothstep(0.2, 0.78, THREE.MathUtils.clamp(tide, 0, 1));
+  const wet = smooth01(0.2, 0.78, THREE.MathUtils.clamp(tide, 0, 1));
   TMP_G.copy(COL_GRASS_DRY).lerp(COL_GRASS_WET, wet);
   TMP_M.copy(COL_MUD_DRY).lerp(COL_MUD_WET, wet);
   // Dry tide: exposed disc reads as mud; dry grass stays on the outer rim. Wet carve unchanged.
@@ -590,7 +590,7 @@ export function createWater(grid) {
 }
 
 export function rebuildWater(group, grid, tide) {
-  const wetAmt = THREE.MathUtils.smoothstep(0.42, 0.92, THREE.MathUtils.clamp(tide, 0, 1));
+  const wetAmt = smooth01(0.42, 0.92, THREE.MathUtils.clamp(tide, 0, 1));
   // Dry tide paints a silver sheet over the whole channel so carved walls cannot read as charcoal pits.
   const cover = THREE.MathUtils.lerp(0.3, 0.1, wetAmt);
   group.userData.waterMesh.geometry.dispose();
@@ -607,7 +607,7 @@ export function rebuildWater(group, grid, tide) {
   mat.fog = false;
   mat.emissive.copy(COL_PUDDLE_SILVER).lerp(COL_PUDDLE_WARM, 0.36);
   mat.emissive.lerp(COL_MIRROR_HL, wetAmt);
-  mat.emissiveIntensity = THREE.MathUtils.lerp(0.84, 0.1, wetAmt);
+  mat.emissiveIntensity = THREE.MathUtils.lerp(0.68, 0.1, wetAmt);
   mat.shininess = THREE.MathUtils.lerp(2, 72, wetAmt);
   mat.specular.copy(COL_PUDDLE_SILVER).lerp(COL_MIRROR_HL, wetAmt);
   mat.polygonOffset = true;
@@ -720,10 +720,10 @@ export function applyTimeOfDay(t, ctx) {
     ctx.sun.target.updateMatrixWorld();
   }
   if (ctx.renderer) {
-    ctx.renderer.toneMappingExposure = t < 0.22 ? 0.86 : t > 0.7 ? 1.12 : 1.06;
+    ctx.renderer.toneMappingExposure = t < 0.22 ? 0.94 : t > 0.7 ? 1.12 : 1.06;
   }
   if (ctx.bloomPass) {
-    const dusk = THREE.MathUtils.smoothstep(0.62, 0.88, t);
+    const dusk = smooth01(0.62, 0.88, t);
     ctx.bloomPass.enabled = dusk > 0.02;
     ctx.bloomPass.strength = 0.04 * dusk;
     ctx.bloomPass.threshold = 0.94;
@@ -735,7 +735,7 @@ const SKY_A = new THREE.Color();
 const SKY_B = new THREE.Color();
 const LIGHT_STOPS = [
   // Dawn: keep #2A6B68 and reed-head #A07848; do not fill meshes with fog-white.
-  { t: 0, sun: 0xa8b4ac, sunI: 0.4, hemi: 0x6e8074, hemiI: 0.26, ground: 0x2a382c, ang: 0.62 },
+  { t: 0, sun: 0xb4c0b8, sunI: 0.52, hemi: 0x849488, hemiI: 0.34, ground: 0x324034, ang: 0.66 },
   // Noon may be bright; it is not the default screenshot light.
   { t: 0.5, sun: 0xf8f4e8, sunI: 1.18, hemi: 0xd2ddd4, hemiI: 0.48, ground: 0x3a4538, ang: 1.18 },
   // Dusk: #FFB060 is sun/highlight only — never copied onto a mesh.

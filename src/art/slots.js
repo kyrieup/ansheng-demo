@@ -107,8 +107,8 @@ function prepareArtRoot(root, role) {
       if (!isDuck) return;
       mat.toneMapped = false;
       if (mat.emissive) {
-        mat.emissive.setHex(0x6a5840);
-        mat.emissiveIntensity = 0.48;
+        mat.emissive.setHex(0x8a7050);
+        mat.emissiveIntensity = 0.55;
       }
     });
   });
